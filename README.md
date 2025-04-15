@@ -1,8 +1,4 @@
 # Townsquare
-
-<<<<<<< HEAD
-A smart event suggestion app using React, Flask, TensorFlow, PostgreSQL, and Firebase.
-=======
 Web application with React frontend, Flask API, TensorFlow recommendations, and PostgreSQL database.
 
 ## Development Setup
