@@ -1,3 +1,4 @@
+
 # Townsquare
 Web application with React frontend, Flask API, TensorFlow recommendations, and PostgreSQL database.
 
@@ -10,44 +11,54 @@ Web application with React frontend, Flask API, TensorFlow recommendations, and 
 - Firebase account (for authentication)
 
 ### 1. Backend Setup (CMD):
-cd server
 
-### *Create and activate virtual environment*
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-.\venv\Scripts\activate   # Windows
+    cd server
 
-### *Install dependencies*
-pip install -r requirements.txt
+*Create and activate virtual environment*
 
-### *Set up environment variables*
-cp .env.example .env
+    python -m venv venv
+    source venv/bin/activate  # Linux/Mac
+    .\venv\Scripts\activate   # Windows
 
-Edit .env with your:
- - DATABASE_URL=postgresql://user:password@localhost:5432/townsquare
- - JWT_SECRET_KEY=your_random_string
- - FIREBASE_API_KEY=your_config
+*Install dependencies*
 
-### Initialize DB
-flask db upgrade
-flask run
+    pip install -r requirements.txt
+
+*Set up environment variables*
+
+    cp .env.example .env
+
+*Edit .env with your:*
+
+    DATABASE_URL=postgresql://user:password@localhost:5432/townsquare
+    JWT_SECRET_KEY=your_random_string
+    FIREBASE_API_KEY=your_config
+
+Initialize DB
+
+    flask db upgrade
+    flask run
 
 ### 2. Frontend Setup (different CMD):
-cd ../client
 
-### *Install dependencies*
-npm install
+    cd ../client
 
-### *Configure Firebase*
-cp .env.local.example .env.local
+*Install dependencies*
 
-Add your Firebase config:
- - REACT_APP_FIREBASE_API_KEY=your_key
- - REACT_APP_AUTH_DOMAIN=your-project.firebaseapp.com
+    npm install
 
-### *Start development server*
-npm start
+*Configure Firebase*
+
+    cp .env.local.example .env.local
+
+*Add your Firebase config:*
+
+    REACT_APP_FIREBASE_API_KEY=your_key
+    REACT_APP_AUTH_DOMAIN=your-project.firebaseapp.com
+
+*Start development server*
+
+    npm start
 
 ### 3. DB Setup
 ### 4. Model Setup
->>>>>>> a1552daef26f006e271f855b77d4d0c51207b889
