@@ -33,7 +33,7 @@ Edit .env with your:
 flask db upgrade
 flask run
 
-### 2. Frontend Setup:
+### 2. Frontend Setup (different CMD):
 cd ../client
 
 ### *Install dependencies*
