@@ -1,0 +1,2 @@
+-- schema.sql: PostgreSQL table definitions
+-- TODO: Write CREATE TABLE statements

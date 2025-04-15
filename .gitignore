@@ -1,0 +1,49 @@
+# ==== GENERAL ====
+.DS_Store           # macOS
+Thumbs.db           # Windows
+desktop.ini         # Windows
+*.log               # Log files
+*.swp               # Vim swap
+*.swo
+
+# ==== PYTHON/FLASK BACKEND ====
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.env
+.flaskenv
+
+# ==== REACT/NODE FRONTEND ====
+node_modules/	    # Node.js dependencies, reinstall via npm
+dist/
+build/
+.cache/
+npm-debug.log*
+yarn-error.log*
+.env.local
+
+# ==== DATABASE ====
+*.dump
+*.db
+/migrations/
+
+# ==== MACHINE LEARNING ====
+*.h5
+*.pkl
+*.joblib
+/data/
+
+# ==== IDE/EDITOR CONFIG ====
+.vscode/
+.idea/
+
+# ==== FIREBASE ====
+.firebase/
+.firebaserc
+
+# ==== EXCEPTIONS (Keep) ====
+!.env.example		# Template for environment variables
+!/database/schema.sql
+!/database/mock_data.py
