@@ -17,6 +17,7 @@ venv/
 
 # ==== REACT/NODE FRONTEND ====
 node_modules/	    # Node.js dependencies, reinstall via npm
+client/node_modules/
 dist/
 build/
 .cache/
