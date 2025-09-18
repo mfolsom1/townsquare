@@ -1,0 +1,38 @@
+name: Frontend CI
+
+on:
+  push:
+    paths:
+      - "client/**"     # only run when frontend files change
+  pull_request:
+    paths:
+      - "client/**"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v3
+        with:
+        node-version: 22
+
+
+      - name: Install dependencies
+        run: |
+          cd client
+          npm install
+
+      - name: Run tests
+        run: |
+          cd client
+          npm test -- --watchAll=false
+
+      - name: Build app
+        run: |
+          cd client
+          npm run build
