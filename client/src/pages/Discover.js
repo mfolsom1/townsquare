@@ -4,7 +4,7 @@ export default function Discover() {
   return (
     <div>
       <h1>Discover Events</h1>
-      <p>testing!</p>
+      <p>testing!!</p>
     </div>
   );
 }
