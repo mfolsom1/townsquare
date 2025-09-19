@@ -37,10 +37,10 @@ jobs:
         #   JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
         #   FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
 
-      - name: Initialize DB
-        run: |
-          cd server
-          flask db upgrade
+      #- name: Initialize DB
+      #  run: |
+      #    cd server
+      #    flask db upgrade
 
       - name: Run tests
         run: |
