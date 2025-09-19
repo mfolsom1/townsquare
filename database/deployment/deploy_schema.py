@@ -410,7 +410,7 @@ SAFETY FEATURES:
     • Script will refuse to run if tables exist (unless --force is used)
     • Requires explicit typed confirmation before deleting existing tables
     • --yes flag bypasses confirmations (use only in automated environments)
-    • All database operations are wrapped in transactions
+    • Each database operation commits immediately with rollback on errors
 
 ⚠️  WARNING: This script will permanently delete existing tables and data!
     Always backup your database before running this script on production data.
