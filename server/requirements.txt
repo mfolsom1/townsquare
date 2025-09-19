@@ -1,4 +1,5 @@
 Flask
+Flask-Migrate
 flask-cors
 python-dotenv
 SQLAlchemy
