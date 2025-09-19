@@ -30,7 +30,7 @@ jobs:
       - name: Copy environment file
         run: |
           cd server
-          cp ../../.env.example .env
+          cp ../.env.example .env
         # can inject secrets later
         # env:
         #   DATABASE_URL: ${{ secrets.DATABASE_URL }}
