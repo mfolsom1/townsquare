@@ -1,0 +1,48 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'server/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13.7'
+
+      - name: Install dependencies
+        run: |
+          cd server
+          pip install -r requirements.txt
+
+      - name: Copy environment file
+        run: |
+          cd server
+          cp ../.env.example .env
+        # can inject secrets later
+        # env:
+        #   DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        #   JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        #   FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+
+      #- name: Initialize DB
+      #  run: |
+      #    cd server
+      #    flask db upgrade
+
+      - name: Run tests
+        run: |
+          cd server
+          pytest   # or python -m unittest discover
