@@ -1,10 +1,23 @@
 import React, { useState } from "react";
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 import CreateEventModal from "./CreateEvent";
+import { useAuth } from "../auth/AuthContext";
 import "./NavBar.css";
 
-export default function NavBar({ initials = "N/A" }) { // TODO: replace with user initials
-  const [openCreate, setOpenCreate] = useState(false); // if modal is open
+export default function NavBar() { 
+  // create event modal is only visible to users
+  const [openCreate, setOpenCreate] = useState (false);
+
+  const { user, logout, initials } = useAuth();
+
+  // redirect after logout
+  const nav = useNavigate();
+  
+  // redirect to /login if logging out
+  const handleLogout = async () => {
+    await logout();
+    nav("/login", { replace: true })
+  }
 
   return (
     <>
@@ -25,9 +38,13 @@ export default function NavBar({ initials = "N/A" }) { // TODO: replace with use
           </button>
 
           {/* avatar links to account profile */}
-          <Link to="/account" className="ts-avatar" title="Account Profile">
+          <Link to="/account" className="ts-avatar" title={user?.displayName || user?.email || "Account"}>
             {initials}
           </Link>
+
+          <button className="ts-logout" onClick={handleLogout} aria-label="Log out">
+            Log out
+          </button>
         </div>
       </header>
 
