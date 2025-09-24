@@ -10,3 +10,69 @@
 .auth-btn.primary { background:#111; color:#fff; }
 .auth-error { background:#ffe8e8; color:#a20000; border:1px solid #ffc2c2; padding:8px 10px; border-radius:8px; margin-bottom:10px; }
 .auth-switch { text-align:center; margin-top:12px; }
+
+
+
+/* PASSWORD VALIDATION */
+.auth-card input.valid-input {        
+  border: 2px solid #0a7a0a !important;  
+  outline: none !important;               
+}
+/* disable signup btn if password invalid */
+.auth-btn.primary:disabled {
+    background: #ccc;
+    color: #666;
+    cursor: not allowed;
+    opacity: 0.7;
+}
+
+.auth-card input.invalid-input {       
+  border: 2px solid #a20000 !important;  
+  outline: none !important;               
+}
+/* red glow to reinforce invalid password feedback */
+.auth-card input.valid-input:focus { 
+  border-color: #0a7a0a !important;
+  box-shadow: 0 0 4px rgba(10, 122, 10, 0.5);
+}
+.auth-card input.invalid-input:focus { 
+  border-color: #a20000 !important;
+  box-shadow: 0 0 4px rgba(162, 0, 0, 0.5);
+}
+
+.input-wrapper {
+  position: relative;              
+  display: flex;                
+  align-items: center;           
+}
+
+.input-wrapper input {
+  flex: 1;                    
+  padding-right: 32px;       
+}
+
+/* icon base */
+.icon {
+  position: absolute;           
+  right: 10px;                
+  font-size: 16px;              
+  pointer-events: none;        
+  font-weight: bold;             
+}
+
+/* color variants */
+.icon.valid {
+  color: #0a7a0a;                /* green check */
+}
+
+.icon.invalid {
+  color: #a20000;                /* red exclamation */
+}
+
+/* style for inline hint */
+.auth-hint {
+  color: #a20000;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}
