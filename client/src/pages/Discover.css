@@ -1,0 +1,17 @@
+.ts-page {
+    padding: 20px;              /* space below the navbar */
+  }
+  
+  .ts-title {
+    margin: 8px 0 2px;
+    font-size: 26px;            
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+  
+  .ts-subtitle {
+    margin: 0 0 18px;
+    font-size: 13px;
+    color: #7a7a7a;             
+  }
+  
