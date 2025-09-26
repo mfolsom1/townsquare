@@ -1,19 +1,31 @@
-# config.py: Load env variables
-# TODO: Setup configuration class for DB, JWT, etc.
 
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DB_USERNAME = os.getenv('DB_USERNAME')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
-DB_SERVER = os.getenv('DB_SERVER')
-DB_DATABASE = os.getenv('DB_DATABASE')
-
-print(f"DB_SERVER={os.getenv('DB_SERVER')}, DB_DATABASE={os.getenv('DB_DATABASE')}")
-
 class Config:
-    # Database configuration
-    SQLALCHEMY_DATABASE_URI = f"mssql+pyodbc://{DB_USERNAME}:{DB_PASSWORD}@{DB_SERVER}/{DB_DATABASE}?driver=ODBC+Driver+18+for+SQL+Server"
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    def __init__(self):
+        # Azure SQL Database configuration
+        self.AZURE_SQL_SERVER = os.environ.get('DB_SERVER')
+        self.AZURE_SQL_DATABASE = os.environ.get('DB_DATABASE')
+        self.AZURE_SQL_USERNAME = os.environ.get('DB_USERNAME')
+        self.AZURE_SQL_PASSWORD = os.environ.get('DB_PASSWORD')
+        
+        # Firebase configuration
+        self.FIREBASE_SERVICE_ACCOUNT_KEY = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+
+    
+    # Connection string for Azure SQL
+    @property
+    def azure_sql_connection_string(self):
+        return (
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"SERVER={self.AZURE_SQL_SERVER};"
+            f"DATABASE={self.AZURE_SQL_DATABASE};"
+            f"UID={self.AZURE_SQL_USERNAME};"
+            f"PWD={self.AZURE_SQL_PASSWORD};"
+            "Encrypt=yes;"
+            "TrustServerCertificate=no;"
+            "Connection Timeout=30;"
+        )
