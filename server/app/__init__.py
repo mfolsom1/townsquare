@@ -1,11 +1,8 @@
 from flask import Flask
 from flask_cors import CORS
-from .models import db
 from .config import Config
-from sqlalchemy.sql import text
 import firebase_admin
 from firebase_admin import credentials
-import pyodbc
 from .config import Config
 
 def create_app():
