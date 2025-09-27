@@ -168,8 +168,9 @@ class Event:
                 (organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
             )
             conn.commit()
+            event_id = cursor.lastrowid
 
-            return Event(organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
+            return Event(event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
         except Exception as e:
             conn.rollback()
             raise e
@@ -214,7 +215,7 @@ class Event:
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT * FROM Events WHERE EventID = ?", (event_id))
+            cursor.execute("SELECT * FROM Events WHERE EventID = ?", (event_id,))
             row = cursor.fetchone()
             if row:
                 return Event(
@@ -244,7 +245,7 @@ class Event:
         cursor = conn.cursor()
         try:
             # Check the event exists and user owns it
-            cursor.execute("SELECT OrganizerUID FROM Events WHERE EventID = ?", (event_id))
+            cursor.execute("SELECT OrganizerUID FROM Events WHERE EventID = ?", (event_id,))
             row = cursor.fetchone()
             if not row or row[0] != organizer_uid:
                 return None

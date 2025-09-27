@@ -182,8 +182,6 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     
-            
-    
     @app.route('/events/<int:event_id>', methods=['PUT'])
     @require_auth
     def update_event(firebase_uid, event_id):

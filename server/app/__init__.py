@@ -3,7 +3,6 @@ from flask_cors import CORS
 from .config import Config
 import firebase_admin
 from firebase_admin import credentials
-from .config import Config
 
 def create_app():
     app = Flask(__name__)
