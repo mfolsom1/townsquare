@@ -1,11 +1,13 @@
-# routes.py: Define API endpoints
-from flask import jsonify, request
+from datetime import datetime
+from flask import Flask, jsonify, request
+from .models import Event
 from firebase_admin import auth
 from .models import User
 from .auth_utils import require_auth
 import pyodbc
 
 def register_routes(app):
+    
     @app.route('/')
     def home():
         return jsonify({"message": "Welcome to Townsquare API"})
@@ -113,3 +115,127 @@ def register_routes(app):
             return jsonify({"error": "Username already exists"}), 409
         except Exception as e:
             return jsonify({"error": f"Failed to update user profile: {str(e)}"}), 500
+    
+    # ===== Event functions ===== #
+    @app.route('/events', methods=['GET'])
+    def get_events():
+        try:
+            events = Event.get_all_events()
+            if not events:
+                return jsonify({"error": "Couldn't find any events"}), 404
+
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route('/events/<int:event_id>', methods=['GET'])
+    def get_event_by_id(event_id):
+        try:
+            event = Event.get_event_by_id(event_id)
+
+            if not event:
+                return jsonify({"error": "Event not found"}), 404
+            
+            return jsonify({
+                "success": True,
+                "event": event.to_dict()
+            }), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route('/events', methods=['POST'])
+    @require_auth
+    def create_event(firebase_uid):
+        try:
+            # Parse JSON data from the request
+            data = request.get_json()
+
+            # Validate required fields
+            required_fields = ['Title', 'StartTime', 'EndTime', 'Location']
+            missing_fields = [field for field in required_fields if field not in data]
+            if missing_fields:
+                return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+
+            # Create a new Event object
+            new_event = Event.create_event(
+                organizer_uid=firebase_uid,
+                title=data['Title'],
+                description=data.get('Description'),
+                start_time=(data['StartTime']),
+                end_time=(data['EndTime']),
+                location=data['Location'],
+                category_id=data.get('CategoryID'),
+                max_attendees=data.get('MaxAttendees'),
+                image_url=data.get('ImageURL')
+            )
+
+            return jsonify({
+                "success": True,
+                "message": "Event created successfully",
+                "new_event": new_event.to_dict()
+            }), 201
+        except ValueError as ve:
+            return jsonify({"error": str(ve)}), 400
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route('/events/<int:event_id>', methods=['PUT'])
+    @require_auth
+    def update_event(firebase_uid, event_id):
+        try:
+            data = request.get_json()
+
+            update_fields = ['title', 'description', 'start_time', 'end_time', 'location', 'category_id', 'max_attendees', 'image_url']
+            update_data = {field: data[field] for field in update_fields if field in data}
+            if not update_data:
+                return jsonify({"error": "No fields to update provided"}), 400
+
+
+            updated_event = Event.update_event(
+                event_id,
+                firebase_uid,
+                **update_data
+            )
+
+            if not updated_event:
+                return jsonify({"error": "Event not found or not authorized to update"}), 404
+
+            return jsonify({
+                "success": True,
+                "message": "Event updated successfully",
+                "updated_event": updated_event.to_dict()
+            }), 200
+        except ValueError as ve:
+            return jsonify({"error": str(ve)}), 400
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route('/events/<int:event_id>', methods=['DELETE'])
+    @require_auth
+    def delete_event(firebase_uid, event_id):
+        try:
+            success = Event.delete_event(event_id, firebase_uid)
+
+            if not success:
+                return jsonify({"error": "Event not found or user not authorized"}), 404
+
+            return jsonify({
+                "success": True,
+                "message": "Event deleted successfully"
+            }), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    
+    # ===== Recommendation functions =====
+    @app.route('/recommendations/<int:user_id>', methods=['GET'])
+    def get_recommendations(user_id):
+        return jsonify([])
+    
+    @app.errorhandler(404)
+    def not_found(error):
+        return jsonify({"error": "Not found"}), 404
+    

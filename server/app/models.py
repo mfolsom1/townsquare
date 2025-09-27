@@ -123,3 +123,170 @@ class User:
             raise e
         finally:
             conn.close()
+
+class Event:
+    def __init__ (self, event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees=None, image_url=None, created_at=None, updated_at=None):
+        self.event_id = event_id
+        self.organizer_uid = organizer_uid
+        self.title = title
+        self.description = description
+        self.start_time = start_time
+        self.end_time = end_time
+        self.location = location
+        self.category_id = category_id
+        self.max_attendees = max_attendees
+        self.image_url = image_url
+        self.created_at = created_at
+        self.updated_at = updated_at
+    
+    def to_dict(self):
+        return {
+            "event_id": self.event_id,
+            "organizer_uid": self.organizer_uid,
+            "title": self.title,
+            "description": self.description,
+            "start_time": self.start_time.isoformat(),
+            "end_time": self.end_time.isoformat(),
+            "location": self.location,
+            "category_id": self.category_id,
+            "max_attendees": self.max_attendees,
+            "image_url": self.image_url,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
+    
+    @staticmethod
+    def create_event(organizer_uid, title, start_time, end_time, location, category_id=None, description=None, max_attendees=None, image_url=None):
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                INSERT INTO Events (OrganizerUID, Title, Description, StartTime, EndTime, Location, CategoryID, MaxAttendees, ImageURL)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
+            )
+            conn.commit()
+            event_id = cursor.lastrowid
+
+            return Event(event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_all_events():
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM Events")
+            rows = cursor.fetchall()
+
+            # Convert rows to Event objects
+            events = [
+                Event(
+                    event_id=row[0],
+                    organizer_uid=row[1],
+                    title=row[2],
+                    description=row[3],
+                    start_time=row[4],
+                    end_time=row[5],
+                    location=row[6],
+                    category_id=row[7],
+                    max_attendees=row[8],
+                    image_url=row[9],
+                    created_at=row[10],
+                    updated_at=row[11]
+                )
+                for row in rows
+            ]
+
+            return events
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_event_by_id(event_id):
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM Events WHERE EventID = ?", (event_id,))
+            row = cursor.fetchone()
+            if row:
+                return Event(
+                    event_id=row[0],
+                    organizer_uid=row[1],
+                    title=row[2],
+                    description=row[3],
+                    start_time=row[4],
+                    end_time=row[5],
+                    location=row[6],
+                    category_id=row[7],
+                    max_attendees=row[8],
+                    image_url=row[9],
+                    created_at=row[10],
+                    updated_at=row[11]
+                )
+            return None
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
+
+
+    @staticmethod
+    def update_event(event_id, organizer_uid, **kwargs):
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Check the event exists and user owns it
+            cursor.execute("SELECT OrganizerUID FROM Events WHERE EventID = ?", (event_id,))
+            row = cursor.fetchone()
+            if not row or row[0] != organizer_uid:
+                return None
+            
+            # Formats update fields
+            fields = ", ".join([f"{key} = ?" for key in kwargs.keys()])
+            values = list(kwargs.values())
+            values.append(event_id)
+
+            # Update query
+            query = f"UPDATE Events SET {fields} WHERE EventID = ?"
+            cursor.execute(query, values)
+            conn.commit()
+
+            # Return updated record
+            cursor.execute("SELECT * FROM Events WHERE EventID = ?", (event_id,))
+            updated_row = cursor.fetchone()
+            return Event(*updated_row) if updated_row else None
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def delete_event(event_id, organizer_uid):
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT OrganizerUID FROM Events WHERE EventID = ?", (event_id,))
+            row = cursor.fetchone()
+            if not row or row[0] != organizer_uid:
+                return False
+            
+            cursor.execute("DELETE FROM Events WHERE EventID = ?", (event_id))
+            conn.commit()
+            return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+            
+

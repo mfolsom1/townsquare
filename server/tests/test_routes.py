@@ -274,3 +274,218 @@ class TestRoutes:
         
         assert response.status_code == 409
         assert response.json['error'] == "Username already exists"
+    
+    @patch('app.auth_utils.auth.verify_id_token')
+    @patch('app.models.Event.create_event')
+    def test_create_event_success(self, mock_create_event, mock_verify_token):
+        """Test successful event creation"""
+        mock_verify_token.return_value = {'uid': 'test-firebase-uid'}
+
+        mock_event = Mock()
+        mock_event.to_dict.return_value = {
+            "event_id": 1,
+            "organizer_uid": "test-firebase-uid",
+            "title": "Community Meetup",
+            "description": "A meetup for the local community.",
+            "start_time": "2025-09-30T10:00:00",
+            "end_time": "2025-09-30T12:00:00",
+            "location": "Community Hall",
+            "category_id": 1,
+            "max_attendees": 50,
+            "image_url": "",
+            "created_at": "2025-09-26T12:00:00",
+            "updated_at": "2025-09-26T12:00:00"
+        }
+        mock_create_event.return_value = mock_event
+
+        event_data = {
+            "Title": "Community Meetup",
+            "Description": "A meetup for the local community.",
+            "StartTime": "2025-09-30T10:00:00",
+            "EndTime": "2025-09-30T12:00:00",
+            "Location": "Community Hall",
+            "CategoryID": 1,
+            "MaxAttendees": 50,
+            "ImageURL": ""
+        }
+
+        # POST request
+        response = self.client.post(
+            "/events",
+            json=event_data,
+            headers={"Authorization": "Bearer valid-token"}
+        )
+
+        # Check output
+        assert response.status_code == 201
+        response_json = response.get_json()
+        assert response_json["success"] is True
+        assert response_json["message"] == "Event created successfully"
+        assert "new_event" in response_json
+        assert response_json["new_event"]["title"] == "Community Meetup"
+        assert response_json["new_event"]["location"] == "Community Hall"
+    
+    @patch('app.models.Event.get_all_events')
+    def test_get_events_success(self, mock_get_all_events):
+        """Test successful retrieval of all events"""
+        mock_event = Mock()
+        mock_event.to_dict.return_value = {
+            "event_id": 1,
+            "organizer_uid": "test-firebase-uid",
+            "title": "Community Meetup",
+            "description": "A meetup for the local community.",
+            "start_time": "2025-09-30T10:00:00",
+            "end_time": "2025-09-30T12:00:00",
+            "location": "Community Hall",
+            "category_id": 1,
+            "max_attendees": 50,
+            "image_url": "",
+            "created_at": "2025-09-26T12:00:00",
+            "updated_at": "2025-09-26T12:00:00"
+        }
+        mock_get_all_events.return_value = [mock_event]
+
+        # Get all events
+        response = self.client.get("/events")
+
+        # Check output
+        assert response.status_code == 200
+        response_json = response.get_json()
+        assert response_json["success"] is True
+        assert len(response_json["events"]) == 1
+        assert response_json["events"][0]["title"] == "Community Meetup"
+
+    @patch('app.models.Event.get_event_by_id')
+    def test_get_event_by_id_success(self, mock_get_event_by_id):
+        """Test successful retrieval of an event by ID"""
+        mock_event = Mock()
+        mock_event.to_dict.return_value = {
+            "event_id": 1,
+            "organizer_uid": "test-firebase-uid",
+            "title": "Community Meetup",
+            "description": "A meetup for the local community.",
+            "start_time": "2025-09-30T10:00:00",
+            "end_time": "2025-09-30T12:00:00",
+            "location": "Community Hall",
+            "category_id": 1,
+            "max_attendees": 50,
+            "image_url": "",
+            "created_at": "2025-09-26T12:00:00",
+            "updated_at": "2025-09-26T12:00:00"
+        }
+        mock_get_event_by_id.return_value = mock_event
+
+        # GET request by ID
+        response = self.client.get("/events/1")
+
+        # Check output
+        assert response.status_code == 200
+        response_json = response.get_json()
+        assert response_json["success"] is True
+        assert response_json["event"]["title"] == "Community Meetup"
+    
+    @patch('app.auth_utils.auth.verify_id_token')
+    @patch('app.models.Event.create_event')
+    @patch('app.models.Event.update_event')
+    def test_create_and_update_event(self, mock_update_event, mock_create_event, mock_verify_token):
+        """Test creating an event and then updating it"""
+        mock_verify_token.return_value = {'uid': 'test-firebase-uid'}
+
+        # Create mock
+        mock_created_event = Mock()
+        mock_created_event.to_dict.return_value = {
+            "event_id": 1,
+            "organizer_uid": "test-firebase-uid",
+            "title": "Original Event Title",
+            "description": "Original description",
+            "start_time": "2025-09-30T10:00:00",
+            "end_time": "2025-09-30T12:00:00",
+            "location": "Original Location",
+            "category_id": 1,
+            "max_attendees": 50,
+            "image_url": "",
+            "created_at": "2025-09-26T12:00:00",
+            "updated_at": "2025-09-26T12:00:00"
+        }
+        mock_create_event.return_value = mock_created_event
+
+        # Update mock
+        mock_updated_event = Mock()
+        mock_updated_event.to_dict.return_value = {
+            "event_id": 1,
+            "organizer_uid": "test-firebase-uid",
+            "title": "Updated Event Title",
+            "description": "Updated description",
+            "start_time": "2025-09-30T10:00:00",
+            "end_time": "2025-09-30T12:00:00",
+            "location": "Updated Location",
+            "category_id": 1,
+            "max_attendees": 100,
+            "image_url": "",
+            "created_at": "2025-09-26T12:00:00",
+            "updated_at": "2025-09-27T12:00:00"
+        }
+        mock_update_event.return_value = mock_updated_event
+
+        # Create the event
+        create_data = {
+            "Title": "Original Event Title",
+            "Description": "Original description",
+            "StartTime": "2025-09-30T10:00:00",
+            "EndTime": "2025-09-30T12:00:00",
+            "Location": "Original Location",
+            "CategoryID": 1,
+            "MaxAttendees": 50,
+            "ImageURL": ""
+        }
+        # CREATE request
+        create_response = self.client.post(
+            "/events",
+            json=create_data,
+            headers={"Authorization": "Bearer valid-token"}
+        )
+
+        # Check create output
+        assert create_response.status_code == 201
+        create_response_json = create_response.get_json()
+        assert create_response_json["success"] is True
+        assert create_response_json["new_event"]["title"] == "Original Event Title"
+
+        # Update the event
+        update_data = {
+            "title": "Updated Event Title",
+            "description": "Updated description",
+            "location": "Updated Location",
+            "max_attendees": 100
+        }
+        # UPDATE request
+        update_response = self.client.put(
+            "/events/1",
+            json=update_data,
+            headers={"Authorization": "Bearer valid-token"}
+        )
+
+        # Check update output
+        assert update_response.status_code == 200
+        update_response_json = update_response.get_json()
+        assert update_response_json["success"] is True
+        assert update_response_json["updated_event"]["title"] == "Updated Event Title"
+    
+    @patch('app.auth_utils.auth.verify_id_token')
+    @patch('app.models.Event.delete_event')
+    def test_delete_event_success(self, mock_delete_event, mock_verify_token):
+        """Test successful event deletion"""
+        mock_verify_token.return_value = {'uid': 'test-firebase-uid'}
+        mock_delete_event.return_value = True
+
+        # Delete event
+        response = self.client.delete(
+            "/events/1",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+
+        # Check output
+        assert response.status_code == 200
+        response_json = response.get_json()
+        assert response_json["success"] is True
+        assert response_json["message"] == "Event deleted successfully"
