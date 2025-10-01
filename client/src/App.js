@@ -1,12 +1,15 @@
 // App.js: Handles routing
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
 import NavBar from "./components/NavBar";
 import Discover from "./pages/Discover";
+
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import RequireAuth from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthContext";
+
 
 function Following() {
   return <h1>Following Page</h1>;
@@ -21,6 +24,7 @@ function App() {
     <AuthProvider>
     <Router>
       <Routes>
+
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
 
@@ -43,6 +47,7 @@ function App() {
         </Routes>
       </Router>
     </AuthProvider>
+
   );
 }
 

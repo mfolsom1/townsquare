@@ -1,4 +1,4 @@
-// firebase.js: Firebase config placeholder
+// firebase.js: Firebase config 
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
@@ -17,4 +17,5 @@ const app = initializeApp(firebaseConfig);
 
 // auth export for your authContext
 export const auth = getAuth(app);
+
 
