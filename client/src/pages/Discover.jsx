@@ -1,7 +1,8 @@
 // Discover.js: Placeholder for event discovery page
-import React from "react";
-import NavBar from "../components/NavBar";
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import "./Discover.css";
+
 
 export default function Discover() {
   return (
