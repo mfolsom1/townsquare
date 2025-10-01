@@ -1,5 +1,7 @@
 import React, { useEffect } from "react";
 import "./CreateEvent.css";
+import { createEvent } from "../services/eventsApi";
+
 /* Placeholder until finalized format for create event */
 /* popup modal */
 export default function CreateEvent({ open, onClose, onCreate }) {
@@ -12,11 +14,29 @@ export default function CreateEvent({ open, onClose, onCreate }) {
 
   if (!open) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.currentTarget));
-    onCreate?.(data); // TODO: send to backend later
-    onClose();
+    const form = Object.fromEntries(new FormData(e.currentTarget));
+    const startAt =
+      form.datetime ? new Date(form.datetime).toISOString() : null;
+
+      try {
+      const created = await createEvent({
+        title: form.title,
+        desc: form.description || "",
+        location: form.location || "",
+        startAt,                    // ISO string
+        // optional fields 
+        category: form.category || "",
+        coverUrl: form.coverUrl || null,
+      });
+      
+      onCreate?.(created);          // keep your callback if someone uses it
+      onClose();
+    } catch (err) {
+      console.error(err);
+      alert("Could not create event. Please try again.");
+    }
   };
 
   return (

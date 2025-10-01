@@ -1,17 +1,76 @@
-.ts-page {
-    padding: 20px;              /* space below the navbar */
-  }
-  
-  .ts-title {
-    margin: 8px 0 2px;
-    font-size: 26px;            
-    font-weight: 700;
-    color: #1a1a1a;
-  }
-  
-  .ts-subtitle {
-    margin: 0 0 18px;
-    font-size: 13px;
-    color: #7a7a7a;             
-  }
-  
+:root{
+  --brand:#6E77FF; --text:#222; --muted:#6b7280; --border:#e6e6ea;
+  --bg:#fff; --shadow:0 8px 24px rgba(0,0,0,.08); --radius:16px;
+}
+
+/* page */
+.ts-discover{ max-width:1200px; margin:0 auto; padding:24px; }
+.ts-discover__header h1{ margin:8px 0 2px; font:700 22px/1 var(--text); color:var(--text); }
+.ts-discover__header p{ margin:0 0 18px; color:var(--muted); }
+
+/* grid: centered, fixed card width, max 4 cols */
+.ts-grid{
+  display:grid; gap:22px;
+  grid-template-columns:repeat(4,280px);
+  justify-content:center;
+}
+.ts-card{ width:280px; }
+
+@media (max-width:1200px){ .ts-grid{ grid-template-columns:repeat(3,280px); } }
+@media (max-width:900px){  .ts-grid{ grid-template-columns:repeat(2,280px); } }
+@media (max-width:620px){  .ts-grid{ grid-template-columns:1fr; } .ts-card{ width:auto; } }
+
+/* card */
+.ts-card{ background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column; }
+.ts-card__media{ position:relative; }
+.ts-card__media img{ width:100%; height:188px; object-fit:cover; display:block; }
+.ts-card__media.is-placeholder{ height:188px; display:grid; place-items:center; background:#f3f4f6; }
+.ts-ph{ color:#9aa0a6; font-weight:600; }
+.ts-badge{ position:absolute; right:10px; bottom:10px; background:#111; color:#fff; font-size:12px; padding:4px 10px; border-radius:999px; opacity:.9; }
+.ts-heart{ position:absolute; top:10px; right:10px; width:36px; height:36px; border-radius:999px; background:#fff; border:1px solid var(--border); display:grid; place-items:center; color:#111; box-shadow:0 4px 14px rgba(0,0,0,.12); }
+
+/* material symbols (outline → filled when saved) */
+.material-symbols-outlined{
+  font-family:'Material Symbols Outlined'; font-style:normal; font-weight:400;
+  display:inline-block; line-height:1; text-transform:none; letter-spacing:normal;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+.material-symbols-outlined.ts-icon{
+  font-size:18px;
+  font-variation-settings:'FILL' var(--ms-fill,0),'wght' var(--ms-wght,400),'GRAD' 0,'opsz' 20;
+}
+.ts-heart .material-symbols-outlined.ts-icon{ --ms-fill:0; --ms-wght:400; transition:color .15s, transform .12s; }
+.ts-heart.is-saved{ color:var(--brand); }
+.ts-heart.is-saved .material-symbols-outlined.ts-icon{ --ms-fill:1; --ms-wght:700; transform:scale(1.02); }
+
+/* body */
+.ts-card__body{ padding:14px 14px 16px; display:grid; gap:8px; }
+.ts-card__title{ margin:0; font-size:16px; font-weight:600; color:var(--text); }
+.ts-card__desc{
+  margin:0; color:#4b5563; font-size:14px; line-height:1.3;
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+  line-clamp:2; overflow:hidden;
+}
+.ts-card__meta{ display:flex; align-items:center; gap:8px; color:#6b7280; font-size:14px; text-transform:none; letter-spacing:normal; }
+
+/* button (no overflow, centered text) */
+.ts-btn{
+  display:flex; justify-content:center; align-items:center;
+  width:100%; padding:10px 12px; box-sizing:border-box;
+  text-align:center; background:var(--brand); color:#fff; border-radius:10px;
+  text-decoration:none; font-weight:600; line-height:1;
+  box-shadow:0 4px 10px rgba(110,119,255,.25);
+}
+.ts-btn:hover{ filter:brightness(.97); }
+
+/* skeleton */
+.ts-card--skeleton{
+  height:280px; border-radius:var(--radius);
+  background:linear-gradient(90deg,#f6f6f6 25%,#ededed 37%,#f6f6f6 63%);
+  background-size:400% 100%; animation:pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse{ 0%{background-position:100% 50%} 100%{background-position:0 50%} }
+
+/* helpers */
+.ts-empty{ margin:24px 0; text-align:center; color:#666; }
+.ts-ellipsis{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
