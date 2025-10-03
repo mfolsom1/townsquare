@@ -121,9 +121,7 @@ def register_routes(app):
     def get_events():
         try:
             events = Event.get_all_events()
-            if not events:
-                return jsonify({"error": "Couldn't find any events"}), 404
-
+            # Returns a 200 OK with an empty list if no events are found, which is more conventional.
             return jsonify({
                 "success": True,
                 "events": [event.to_dict() for event in events]
@@ -145,7 +143,7 @@ def register_routes(app):
             }), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-    
+            
     @app.route('/events', methods=['POST'])
     @require_auth
     def create_event(firebase_uid):
@@ -153,8 +151,8 @@ def register_routes(app):
             # Parse JSON data from the request
             data = request.get_json()
 
-            # Validate required fields
-            required_fields = ['Title', 'StartTime', 'EndTime', 'Location']
+            # Validate required fields (CategoryID is now included)
+            required_fields = ['Title', 'StartTime', 'EndTime', 'Location', 'CategoryID']
             missing_fields = [field for field in required_fields if field not in data]
             if missing_fields:
                 return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
@@ -167,7 +165,7 @@ def register_routes(app):
                 start_time=(data['StartTime']),
                 end_time=(data['EndTime']),
                 location=data['Location'],
-                category_id=data.get('CategoryID'),
+                category_id=data['CategoryID'], # Now a required field
                 max_attendees=data.get('MaxAttendees'),
                 image_url=data.get('ImageURL')
             )
@@ -181,23 +179,40 @@ def register_routes(app):
             return jsonify({"error": str(ve)}), 400
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-    
-    @app.route('/events/<int:event_id>', methods=['PUT'])
+            
+    # Changed to PATCH for partial updates, which is more REST-compliant.
+    @app.route('/events/<int:event_id>', methods=['PATCH'])
     @require_auth
     def update_event(firebase_uid, event_id):
         try:
             data = request.get_json()
 
-            update_fields = ['title', 'description', 'start_time', 'end_time', 'location', 'category_id', 'max_attendees', 'image_url']
+            # Keys are now PascalCase to be consistent with the create_event endpoint.
+            update_fields = ['Title', 'Description', 'StartTime', 'EndTime', 'Location', 'CategoryID', 'MaxAttendees', 'ImageURL']
             update_data = {field: data[field] for field in update_fields if field in data}
+            
             if not update_data:
                 return jsonify({"error": "No fields to update provided"}), 400
+
+            # Convert PascalCase keys from JSON to snake_case for the model function call
+            update_kwargs = {
+                'title': update_data.get('Title'),
+                'description': update_data.get('Description'),
+                'start_time': update_data.get('StartTime'),
+                'end_time': update_data.get('EndTime'),
+                'location': update_data.get('Location'),
+                'category_id': update_data.get('CategoryID'),
+                'max_attendees': update_data.get('MaxAttendees'),
+                'image_url': update_data.get('ImageURL')
+            }
+            # Remove keys that were not provided
+            update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None}
 
 
             updated_event = Event.update_event(
                 event_id,
                 firebase_uid,
-                **update_data
+                **update_kwargs
             )
 
             if not updated_event:
@@ -212,7 +227,7 @@ def register_routes(app):
             return jsonify({"error": str(ve)}), 400
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-    
+            
     @app.route('/events/<int:event_id>', methods=['DELETE'])
     @require_auth
     def delete_event(firebase_uid, event_id):
@@ -228,7 +243,6 @@ def register_routes(app):
             }), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-
     
     # ===== Recommendation functions =====
     @app.route('/recommendations/<int:user_id>', methods=['GET'])

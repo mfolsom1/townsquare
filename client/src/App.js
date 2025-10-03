@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import RequireAuth from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthContext";
+import EventDetail from './pages/EventDetail'; 
 
 
 function Following() {
@@ -39,6 +40,7 @@ function App() {
                   <Route path="/following" element={<Following />} />
                   <Route path="/saved" element={<Saved />} />
                   <Route path="*" element={<Discover />} />
+                  <Route path="/events/:eventId" element={<EventDetail />} />
                 </Routes>
               </>
             </RequireAuth>
