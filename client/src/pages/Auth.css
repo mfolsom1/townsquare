@@ -1,4 +1,11 @@
-/* temp styling */
+/* Theme colors */
+:root {
+  --primary-color: #fff;
+  --secondary-color: #ccc;
+  --text-color: #111;
+  --accent-color: #8851bc;
+  --error-color: #a20000;
+}
 
 .auth-wrap { 
   display:flex; 
@@ -10,10 +17,19 @@
   font-family: "Inter", sans-serif;
 }
 
+/* Townsquare header above h1 */
+.auth-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent-color);
+  margin: 0 0 0px 0;
+  text-align: left;
+}
+
 .auth-card { 
   width:100%; 
   max-width:420px; 
-  background:#f5f5f5; /* light gray card background */
+  background:#f5f5f5;
   border:2px solid var(--accent-color); 
   border-radius:16px; 
   padding:28px; 
@@ -21,13 +37,14 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  text-align: left;
 }
 
 .auth-card h1 { 
-  margin:0 0 16px; 
+  margin:0 0 8px; 
   font-size:24px; 
   color: var(--text-color);
-  text-align: center;
+  text-align: left;
 }
 
 .auth-card label { 
@@ -53,15 +70,6 @@
   border-color: var(--accent-color);
   outline: none;
   box-shadow: 0 0 4px rgba(81, 99, 188, 0.2);
-}
-
-/* Theme colors */
-:root {
-  --primary-color: #fff;
-  --secondary-color: #ccc;
-  --text-color: #111;
-  --accent-color: #5163BC;
-  --error-color: #a20000;
 }
 
 /* PASSWORD VALIDATION */
@@ -172,4 +180,23 @@
 
 .auth-switch a:hover { 
   text-decoration: underline; 
+}
+
+.forgot-password-container {
+  width: 100%;
+  text-align: right;
+  margin-bottom: 12px;
+}
+
+.forgot-password-btn {
+  background: none;
+  border: none;
+  color: var(--accent-color);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.forgot-password-btn:hover {
+  text-decoration: underline;
 }

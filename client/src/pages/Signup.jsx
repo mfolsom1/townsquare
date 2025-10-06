@@ -58,6 +58,7 @@ export default function Signup() {
     return (
         <main className="auth-wrap">
         <form className="auth-card" onSubmit={onSubmit}>
+            <h2 className="auth-title">Townsquare</h2>
             <h1>Create your account</h1>
 
             {/* error message (only shown if signup fails) */}
