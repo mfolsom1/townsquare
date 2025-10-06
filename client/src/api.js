@@ -41,6 +41,24 @@ async function apiRequest(url, options = {}, idToken = null) {
 //============================================
 
 /**
+ * Creates a new user in the backend database with just name, username, and email.
+ * If the user already exists, it will return the existing user.
+ * @param {string} idToken - The Firebase ID token of the user.
+ * @param {object} userData - Minimal user info to store in DB.
+ *   Should include: { name, username, email }
+ * @returns {Promise<object>} The user data returned from the backend.
+ */
+export async function createUser(idToken, userData) {
+    return apiRequest("/api/auth/verify", {
+        method: "POST",
+        body: JSON.stringify({
+            idToken,
+            ...userData
+        }),
+    });
+}
+
+/**
  * Verifies the Firebase ID token with the backend.
  * This will create a new user in the database if one doesn't already exist.
  * @param {string} idToken - The user's Firebase ID token.

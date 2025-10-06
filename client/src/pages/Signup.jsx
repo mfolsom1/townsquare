@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext"; 
+import { createUser } from "../api";
+import { getIdToken } from "firebase/auth";
 import "./Auth.css"; 
 
 export default function Signup() {
@@ -44,8 +46,17 @@ export default function Signup() {
         }
 
         try {
-        // call signup function
-        await signup(form);
+        const userCredential = await signup(form); // returns Firebase user object
+
+        const idToken = await getIdToken(userCredential);
+
+        const backendResponse = await createUser(idToken, {
+            name: form.name,
+            username: form.username,
+            email: form.email
+        });
+
+        console.log("Backend user created or fetched:", backendResponse.user);
 
         // redirect to intended page or `/discover`
         nav(redirectTo, { replace: true });
