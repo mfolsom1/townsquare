@@ -12,6 +12,13 @@
 .auth-switch { text-align:center; margin-top:12px; }
 
 
+/* Theme colors */
+:root {
+  --primary-color: #111;      
+  --secondary-color: #fff;
+  --accent-color: #5163BC;
+  --error-color: #a20000;
+}
 
 /* PASSWORD VALIDATION */
 .auth-card input.valid-input {        
