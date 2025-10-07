@@ -13,6 +13,8 @@ export default function Signup() {
 
     // local state to track and display error messages
     const [err, setErr] = useState("");
+    // ADDED: gaurd double submit
+    const [pending, setPending] = useState(false);            
 
     // navigation + redirect handling
     const nav = useNavigate();
@@ -20,6 +22,16 @@ export default function Signup() {
 
     // determine where to send user after signup -> discover page
     const redirectTo = location.state?.from?.pathname || "/discover";
+
+    // CHANGED: Username policy (a–z, 0–9, underscore, 3–20)
+    const normalizedUsername = useMemo(
+        () => form.username.trim().toLowerCase(),
+        [form.username]
+    );
+    const isValidUsername = useMemo(
+        () => /^[a-z0-9_]{3,20}$/.test(normalizedUsername),
+        [normalizedUsername]
+    );
 
     // password validation function 
     const isStrongPassword = useMemo(() => {
@@ -37,6 +49,12 @@ export default function Signup() {
         e.preventDefault(); // stop page refresh
         setErr("");         // clear previous error
 
+        // check username validity 
+        if (!isValidUsername) {
+            setErr("Username must be 3–20 chars, a–z, 0–9, or underscore.");
+            return;
+        }
+
         // check password strength
         if (!isStrongPassword) {
             setErr("Password must be at least 8 characters and include an uppercase letter, a number, and a special character.");
@@ -45,13 +63,26 @@ export default function Signup() {
 
         try {
         // call signup function
-        await signup(form);
+        setPending(true);
+        // ADDED: send normalized username + trimmed name
+        await signup({
+            name: form.name.trim(),
+            username: normalizedUsername,
+            email: form.email.trim(),
+            password: form.password, 
+        });
 
         // redirect to intended page or `/discover`
         nav(redirectTo, { replace: true });
         } catch (e) {
         // show error if signup fails
-        setErr(e.message);
+        const msg =
+            e?.message?.includes("username is taken")
+            ? "That username is taken. Please choose another."
+            : e?.message || "Could not sign up. Please try again.";
+        setErr(msg);
+        } finally {
+        setPending(false);                                
         }
     };
 
