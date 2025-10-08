@@ -73,7 +73,6 @@
   color: #333;
 }
 
-/* Responsive: stack into 3 per row on smaller screens */
 @media (max-width: 700px) {
   .interests-menu {
   display: grid;
@@ -89,7 +88,6 @@
   }
 }
 
-/* On very small screens, 2 per row */
 @media (max-width: 480px) {
   .interests-menu {
     grid-template-columns: repeat(2, 1fr);

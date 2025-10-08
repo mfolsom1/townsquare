@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import "./Interests.css";
 
 const interestsList = [
@@ -21,16 +20,9 @@ export default function Interests() {
   const [loading, setLoading] = useState(true);
   const nav = useNavigate();
 
-  // 🟢 Fetch saved interests when page loads
-  useEffect(() => {
-    axios
-      .get("/api/interests") // ← change this endpoint if needed
-      .then((res) => {
-        setSelected(res.data.interests || []); // expect array like ["music", "food"]
-      })
-      .catch((err) => console.error("Failed to fetch interests:", err))
-      .finally(() => setLoading(false));
-  }, []);
+  //TO DO: GET INTERESTS
+  if(loading == true)
+    setLoading(false);
 
   const toggleInterest = (id) => {
     setSelected((prev) =>
@@ -41,11 +33,7 @@ export default function Interests() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    try {
-      await axios.post("/api/interests", { interests: selected });
-    } catch (err) {
-      console.error("Failed to save interests:", err);
-    }
+    //TO DO: SAVE INTERESTS
 
     nav("/discover");
   };
