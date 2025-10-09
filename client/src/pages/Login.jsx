@@ -33,6 +33,7 @@ export default function Login() {
     return (
         <main className="auth-wrap">
         <form className="auth-card" onSubmit={onSubmit}>
+            <h2 className="auth-title">Townsquare</h2>
             <h1>Welcome back</h1>
             {err && <div className="auth-error">{err}</div>}
             <label>
@@ -53,6 +54,17 @@ export default function Login() {
                 required
             />
             </label>
+
+            <div className="forgot-password-container">
+                <button 
+                type="button" 
+                className="forgot-password-btn"
+                onClick={() => { /* redirect to reset page */ }}
+                >
+                Forgot password?
+                </button>
+            </div>
+            
             <button className="auth-btn primary" type="submit">Log in</button>
             <p className="auth-switch">
             New here? <Link to="/signup">Create an account</Link>
