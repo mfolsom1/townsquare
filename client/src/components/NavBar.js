@@ -30,7 +30,6 @@ export default function NavBar() {
           <NavLink to="/discover" className="ts-tab">Discover</NavLink>
           <NavLink to="/following" className="ts-tab">Following</NavLink>
           <NavLink to="/saved" className="ts-tab">Saved Events</NavLink>
-          <NavLink to="/update-interests" className="ts-tab">Update Interests</NavLink>
         </nav>
 
         <div className="ts-right">

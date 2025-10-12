@@ -111,13 +111,17 @@ def register_routes(app):
     def update_user_profile(firebase_uid):
         """Update user profile (requires Firebase token in Authorization header)"""
         try:
+            # Explicit check for missing or invalid firebase_uid
+            if not firebase_uid:
+                return jsonify({"error": "You must be logged in to update your profile."}), 401
+
             update_data = request.json or {}
             allowed_fields = ['username', 'first_name', 'last_name', 'location', 'bio', 'interests']
-            
+
             # Filter and validate data
             filtered_data = {k: v for k, v in update_data.items() 
                            if k in allowed_fields and v is not None}
-            
+
             # Special validation for interests
             if 'interests' in filtered_data:
                 interests = filtered_data['interests']
@@ -129,13 +133,13 @@ def register_routes(app):
                         return jsonify({"error": "Each interest must be a non-empty string"}), 400
                 # Clean up interest names (strip whitespace)
                 filtered_data['interests'] = [interest.strip() for interest in interests]
-            
+
             if not filtered_data:
                 return jsonify({"error": "No valid fields to update"}), 400
-            
+
             # Update user in database
             success = User.update_user(firebase_uid, **filtered_data)
-            
+
             if success:
                 # Return updated user data
                 user = User.get_user_by_firebase_uid(firebase_uid)
@@ -146,9 +150,14 @@ def register_routes(app):
                 })
             else:
                 return jsonify({"error": "No fields were updated"}), 400
-            
-        except pyodbc.IntegrityError:
-            return jsonify({"error": "Username already exists"}), 409
+
+        except pyodbc.IntegrityError as e:
+            # Return a clearer, generic integrity error for profile updates.
+            # The previous message always said 'Username already exists' which is
+            # misleading when updating interests or other fields. Include the
+            # original error text in the response for easier debugging (can be
+            # removed or reduced in production).
+            return jsonify({"error": "Database integrity error", "details": str(e)}), 409
         except Exception as e:
             return jsonify({"error": f"Failed to update user profile: {str(e)}"}), 500
     
