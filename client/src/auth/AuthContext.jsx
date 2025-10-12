@@ -7,6 +7,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
+import { verifyUserWithBackend } from "../api";
 
 const AuthContext = createContext(null);
 
@@ -27,13 +28,46 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       user,
-      signup: async ({ name, email, password }) => {
+      signup: async ({ name, username, email, password }) => {
+        // Validate that username is provided
+        if (!username || username.trim().length === 0) {
+          throw new Error("Username is required");
+        }
+        
+        console.log("Signup attempt with:", { name, username, email }); // Debug log
+        
+        // Create user in Firebase
         const cred = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // Update the user's display name in Firebase if provided
         if (name) await updateProfile(cred.user, { displayName: name });
+        
+        // Get the ID token to authenticate with backend
+        const idToken = await cred.user.getIdToken();
+        
+        // Prepare additional user data for backend
+        const userData = {
+          username: username.trim(),
+          name: name
+        };
+        
+        console.log("Sending to backend:", userData); // Debug log
+        
+        // Create/verify user in backend database
+        await verifyUserWithBackend(idToken, userData);
+        
         return cred.user;
       },
       // email/pass login
-      login: (email, password) => signInWithEmailAndPassword(auth, email, password),
+      login: async (email, password) => {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        
+        // Get the ID token and verify with backend
+        const idToken = await cred.user.getIdToken();
+        await verifyUserWithBackend(idToken);
+        
+        return cred.user;
+      },
       //logout current user
       logout: () => signOut(auth),
       initials: user?.displayName

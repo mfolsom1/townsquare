@@ -50,28 +50,30 @@ class TestUser:
     
     def test_user_to_dict(self):
         """Test User.to_dict() method"""
-        user = User(
-            firebase_uid='test-uid',
-            username='testuser',
-            email='test@example.com',
-            first_name='Test',
-            last_name='User',
-            location='Test City',
-            bio='Test bio'
-        )
-        
-        result = user.to_dict()
-        expected = {
-            "firebase_uid": 'test-uid',
-            "username": 'testuser',
-            "email": 'test@example.com',
-            "first_name": 'Test',
-            "last_name": 'User',
-            "location": 'Test City',
-            "bio": 'Test bio'
-        }
-        
-        assert result == expected
+        with patch.object(User, 'get_user_interests_by_uid', return_value=['music', 'sports']):
+            user = User(
+                firebase_uid='test-uid',
+                username='testuser',
+                email='test@example.com',
+                first_name='Test',
+                last_name='User',
+                location='Test City',
+                bio='Test bio'
+            )
+            
+            result = user.to_dict()
+            expected = {
+                "firebase_uid": 'test-uid',
+                "username": 'testuser',
+                "email": 'test@example.com',
+                "first_name": 'Test',
+                "last_name": 'User',
+                "location": 'Test City',
+                "bio": 'Test bio',
+                "interests": ['music', 'sports']
+            }
+            
+            assert result == expected
     
     @patch('app.models.DatabaseConnection.get_connection')
     def test_create_user_success(self, mock_get_connection):
@@ -208,6 +210,7 @@ class TestUser:
         mock_cursor = Mock()
         mock_get_connection.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
+        mock_conn.closed = False  # Add this to track connection state
         
         # Test user update
         result = User.update_user(
@@ -236,6 +239,7 @@ class TestUser:
         mock_cursor = Mock()
         mock_get_connection.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
+        mock_conn.closed = False  # Add this to track connection state
         
         # Test user update with invalid fields
         result = User.update_user('test-uid', invalid_field='value')
@@ -257,6 +261,7 @@ class TestUser:
         mock_get_connection.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
         mock_cursor.execute.side_effect = Exception("Database error")
+        mock_conn.closed = False  # Add this to track connection state
         
         # Test user update with error
         with pytest.raises(Exception) as exc_info:
@@ -265,3 +270,225 @@ class TestUser:
         assert str(exc_info.value) == "Database error"
         mock_conn.rollback.assert_called_once()
         mock_conn.close.assert_called_once()
+        mock_conn.rollback.assert_called_once()
+        mock_conn.close.assert_called_once()
+    
+    @patch('app.models.DatabaseConnection.get_connection')
+    def test_get_user_interests_by_uid(self, mock_get_connection):
+        """Test getting user interests by Firebase UID"""
+        # Setup mocks
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_get_connection.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+        
+        # Mock database rows
+        mock_rows = [('music',), ('sports',), ('technology',)]
+        mock_cursor.fetchall.return_value = mock_rows
+        
+        # Test getting user interests
+        result = User.get_user_interests_by_uid('test-uid')
+        
+        # Verify database operations
+        expected_query = """
+                SELECT i.Name 
+                FROM Interests i 
+                INNER JOIN UserInterests ui ON i.InterestID = ui.InterestID 
+                WHERE ui.UserUID = ?
+                ORDER BY i.Name
+                """
+        mock_cursor.execute.assert_called_once_with(expected_query, ('test-uid',))
+        mock_conn.close.assert_called_once()
+        
+        # Verify return value
+        assert result == ['music', 'sports', 'technology']
+    
+    @patch('app.models.DatabaseConnection.get_connection')
+    def test_add_user_interest_new_interest(self, mock_get_connection):
+        """Test adding a new interest to user"""
+        # Setup mocks
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_get_connection.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+        
+        # Mock that interest doesn't exist
+        mock_cursor.fetchone.return_value = None
+        mock_cursor.lastrowid = 123
+        
+        # Test adding interest
+        result = User.add_user_interest('test-uid', 'music')
+        
+        # Verify database operations
+        assert mock_cursor.execute.call_count == 3
+        mock_conn.commit.assert_called_once()
+        mock_conn.close.assert_called_once()
+        assert result is True
+    
+    @patch('app.models.DatabaseConnection.get_connection')
+    def test_add_user_interest_existing_interest(self, mock_get_connection):
+        """Test adding an existing interest to user"""
+        # Setup mocks
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_get_connection.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+        
+        # Mock that interest exists
+        mock_cursor.fetchone.return_value = (123,)
+        
+        # Test adding interest
+        result = User.add_user_interest('test-uid', 'music')
+        
+        # Verify database operations
+        assert mock_cursor.execute.call_count == 2
+        mock_conn.commit.assert_called_once()
+        mock_conn.close.assert_called_once()
+        assert result is True
+    
+    @patch('app.models.DatabaseConnection.get_connection')
+    def test_remove_user_interest(self, mock_get_connection):
+        """Test removing user interest"""
+        # Setup mocks
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_get_connection.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+        mock_cursor.rowcount = 1
+        
+        # Test removing interest
+        result = User.remove_user_interest('test-uid', 'music')
+        
+        # Verify database operations
+        expected_query = """
+                DELETE ui FROM UserInterests ui
+                INNER JOIN Interests i ON ui.InterestID = i.InterestID
+                WHERE ui.UserUID = ? AND i.Name = ?
+                """
+        mock_cursor.execute.assert_called_once_with(expected_query, ('test-uid', 'music'))
+        mock_conn.commit.assert_called_once()
+        mock_conn.close.assert_called_once()
+        assert result is True
+    
+    @patch('app.models.DatabaseConnection.get_connection')
+    def test_remove_user_interest_not_found(self, mock_get_connection):
+        """Test removing user interest that doesn't exist"""
+        # Setup mocks
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_get_connection.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+        mock_cursor.rowcount = 0
+        
+        # Test removing non-existent interest
+        result = User.remove_user_interest('test-uid', 'nonexistent')
+        
+        # Verify return value
+        assert result is False
+    
+    @patch('app.models.DatabaseConnection.get_connection')
+    def test_set_user_interests(self, mock_get_connection):
+        """Test setting user interests (replace all)"""
+        # Setup mocks
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_get_connection.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+        
+        # Mock existing interests
+        mock_cursor.fetchone.side_effect = [(123,), None, (456,)]  # music exists, sports new, tech exists
+        mock_cursor.lastrowid = 789  # For new sports interest
+        
+        # Test setting interests
+        result = User.set_user_interests('test-uid', ['music', 'sports', 'technology'])
+        
+        # Verify database operations
+        # Should delete existing, then add each interest
+        assert mock_cursor.execute.call_count >= 6  # Delete + multiple inserts
+        mock_conn.commit.assert_called_once()
+        mock_conn.close.assert_called_once()
+        assert result is True
+    
+    @patch('app.models.DatabaseConnection.get_connection')
+    def test_update_user_with_interests(self, mock_get_connection):
+        """Test updating user with interests"""
+        # Setup mocks
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_get_connection.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+        
+        with patch.object(User, 'set_user_interests', return_value=True) as mock_set_interests:
+            # Test user update with interests
+            result = User.update_user(
+                'test-uid',
+                username='newusername',
+                interests=['music', 'sports']
+            )
+            
+            # Verify basic fields were updated
+            expected_query = "UPDATE Users SET Username = ?, UpdatedAt = GETDATE() WHERE FirebaseUID = ?"
+            expected_values = ['newusername', 'test-uid']
+            mock_cursor.execute.assert_called_once_with(expected_query, expected_values)
+            
+            # Verify interests were set
+            mock_set_interests.assert_called_once_with('test-uid', ['music', 'sports'])
+            
+            # Verify return value
+            assert result is True
+    
+    @patch('app.models.DatabaseConnection.get_connection')
+    def test_update_user_interests_only(self, mock_get_connection):
+        """Test updating user with only interests (no basic fields)"""
+        # Setup mocks
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_get_connection.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+        
+        with patch.object(User, 'set_user_interests', return_value=True) as mock_set_interests:
+            # Test user update with only interests
+            result = User.update_user('test-uid', interests=['music'])
+            
+            # Verify no basic field updates
+            mock_cursor.execute.assert_not_called()
+            
+            # Verify interests were set
+            mock_set_interests.assert_called_once_with('test-uid', ['music'])
+            
+            # Verify return value
+            assert result is True
+    
+    @patch('app.models.DatabaseConnection.get_connection')
+    def test_get_all_interests(self, mock_get_connection):
+        """Test getting all available interests"""
+        # Setup mocks
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_get_connection.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+        
+        # Mock database rows
+        mock_rows = [
+            ('music', 'Musical interests'),
+            ('sports', None),
+            ('technology', 'Tech and programming')
+        ]
+        mock_cursor.fetchall.return_value = mock_rows
+        
+        # Test getting all interests
+        result = User.get_all_interests()
+        
+        # Verify database operations
+        mock_cursor.execute.assert_called_once_with(
+            "SELECT Name, Description FROM Interests ORDER BY Name"
+        )
+        mock_conn.close.assert_called_once()
+        
+        # Verify return value
+        expected = [
+            {"name": "music", "description": "Musical interests"},
+            {"name": "sports", "description": None},
+            {"name": "technology", "description": "Tech and programming"}
+        ]
+        assert result == expected
