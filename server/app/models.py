@@ -256,12 +256,16 @@ class User:
             
             return updated_basic or updated_interests
         except Exception as e:
-            if not conn.closed:
+            try:
                 conn.rollback()
+            except Exception:
+                pass
             raise e
         finally:
-            if not conn.closed:
+            try:
                 conn.close()
+            except Exception:
+                pass
     
     @staticmethod
     def get_all_interests():
