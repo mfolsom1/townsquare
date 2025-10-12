@@ -176,6 +176,55 @@ class Event:
             raise e
         finally:
             conn.close()
+
+    @staticmethod
+    def get_events(filters=None):
+        filters = filters or {}
+        clauses = []
+        params = []
+
+        q = filters.get('q')
+        if q:
+            clauses.append("(Title LIKE ?)")
+            params += [f"%{q}%"]
+        
+        if filters.get('category_id') is not None:
+            clauses.append("CategoryID = ?")
+            params.append(int(filters['category_id']))
+        
+        if filters.get('location'):
+            clauses.append("Location LIKE ?")
+            params.append(f"%{filters['location']}%")
+        
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Select matching event rows and map to Event objects
+            cursor.execute(f"SELECT * FROM Events {where_sql}", params)
+            rows = cursor.fetchall()
+
+            events = [
+                Event(
+                    event_id=row[0],
+                    organizer_uid=row[1],
+                    title=row[2],
+                    description=row[3],
+                    start_time=row[4],
+                    end_time=row[5],
+                    location=row[6],
+                    category_id=row[7],
+                    max_attendees=row[8],
+                    image_url=row[9],
+                    created_at=row[10],
+                    updated_at=row[11]
+                )
+                for row in rows
+            ]
+            return events
+        finally:
+            conn.close()
     
     @staticmethod
     def get_all_events():

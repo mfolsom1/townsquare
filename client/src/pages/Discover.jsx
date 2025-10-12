@@ -1,7 +1,7 @@
 // Discover.js: Page for discovering events
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { getAllEvents } from "../api"; // Make sure the path to your api.js is correct
+import { Link, useSearchParams } from "react-router-dom";
+import { getAllEvents, getEvents } from "../api"; // Make sure the path to your api.js is correct
 import "./Discover.css";
 
 // --- Helper Data & Functions ---
@@ -99,12 +99,15 @@ export default function Discover() {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [searchParams] = useSearchParams();
 
     useEffect(() => {
         const fetchEvents = async () => {
             try {
+                const q = searchParams.get('q');
+                const category_id = searchParams.get('category_id');
                 // The API now returns an object where keys are event IDs
-                const response = await getAllEvents();
+                const response = await getEvents({ q: q, category_id: category_id || undefined });
                 // We convert the object of events into an array
                 const eventsArray = Object.values(response.events || {});
                 setEvents(eventsArray);

@@ -120,7 +120,26 @@ def register_routes(app):
     @app.route('/events', methods=['GET'])
     def get_events():
         try:
-            events = Event.get_all_events()
+            if request.args:
+                q = request.args.get('q')
+                category_id = request.args.get('category_id')
+                location = request.args.get('location')
+
+                if category_id:
+                    try:
+                        category_id = int(category_id)
+                    except ValueError:
+                        return jsonify({"error": "category_id not an integer"})
+                
+                filters = {}
+                if q: filters['q'] = q
+                if category_id is not None: filters['category_id'] = category_id
+                if location: filters['location'] = location
+
+                events = Event.get_events(filters=filters)
+            else:
+                events = Event.get_all_events()
+
             # Returns a 200 OK with an empty list if no events are found, which is more conventional.
             return jsonify({
                 "success": True,

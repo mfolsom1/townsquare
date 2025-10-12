@@ -87,6 +87,8 @@ export async function getAllEvents() {
     return apiRequest("/events", { method: "GET" });
 }
 
+
+
 /**
  * Fetches a single event by its unique ID.
  * @param {number} eventId - The ID of the event to retrieve.
@@ -144,4 +146,26 @@ export async function deleteEvent(idToken, eventId) {
  */
 export async function getRecommendations(userId) {
     return apiRequest(`/recommendations/${userId}`, { method: "GET" });
+}
+
+// build query string and call /events
+function buildQueryString(params = {}) {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+        // skip null/undefined/empty
+        if (v === undefined || v === null || v === '') return;
+        // If value is an array, append each item (e.g. tags)
+        if (Array.isArray(v)) {
+            v.forEach(item => qs.append(k, String(item)));
+        } else {
+            qs.append(k, String(v));
+        }
+    });
+    return qs.toString();
+}
+
+export async function getEvents(params = {}) {
+    const qs = buildQueryString(params);
+    const url = qs ? `/events?${qs}` : '/events';
+    return apiRequest(url, { method: 'GET' });
 }
