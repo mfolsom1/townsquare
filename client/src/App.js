@@ -10,6 +10,7 @@ import Signup from "./pages/Signup";
 import RequireAuth from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthContext";
 import EventDetail from './pages/EventDetail'; 
+import Interests from "./pages/Interests";
 
 import UpdateInterests from './pages/UpdateInterests';
 
@@ -44,6 +45,7 @@ function App() {
                   <Route path="/update-interests" element={<UpdateInterests />} />
                   <Route path="*" element={<Discover />} />
                   <Route path="/events/:eventId" element={<EventDetail />} />
+                  <Route path="/interests" element={<Interests />} />
                 </Routes>
               </>
             </RequireAuth>
