@@ -12,7 +12,6 @@ import { AuthProvider } from "./auth/AuthContext";
 import EventDetail from './pages/EventDetail'; 
 import Interests from "./pages/Interests";
 
-
 function Following() {
   return <h1>Following Page</h1>;
 }

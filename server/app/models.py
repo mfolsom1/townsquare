@@ -29,8 +29,13 @@ class User:
             "first_name": self.first_name,
             "last_name": self.last_name,
             "location": self.location,
-            "bio": self.bio
+            "bio": self.bio,
+            "interests": self.get_user_interests()
         }
+    
+    def get_user_interests(self):
+        """Get user's interests as a list of interest names"""
+        return User.get_user_interests_by_uid(self.firebase_uid)
     
     @staticmethod
     def create_user(firebase_uid, username, email, first_name=None, last_name=None, location="Unknown"):
@@ -85,12 +90,133 @@ class User:
             conn.close()
     
     @staticmethod
+    def get_user_interests_by_uid(firebase_uid):
+        """Get all interests for a user by Firebase UID"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT i.Name 
+                FROM Interests i 
+                INNER JOIN UserInterests ui ON i.InterestID = ui.InterestID 
+                WHERE ui.UserUID = ?
+                ORDER BY i.Name
+                """,
+                (firebase_uid,)
+            )
+            rows = cursor.fetchall()
+            return [row[0] for row in rows]
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def add_user_interest(firebase_uid, interest_name):
+        """Add an interest to a user"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # First, get or create the interest
+            cursor.execute("SELECT InterestID FROM Interests WHERE Name = ?", (interest_name,))
+            row = cursor.fetchone()
+            
+            if row:
+                interest_id = row[0]
+            else:
+                # Create new interest
+                cursor.execute(
+                    "INSERT INTO Interests (Name) VALUES (?)",
+                    (interest_name,)
+                )
+                interest_id = cursor.lastrowid
+            
+            # Add user-interest relationship (ignore if already exists)
+            cursor.execute(
+                """
+                IF NOT EXISTS (SELECT 1 FROM UserInterests WHERE UserUID = ? AND InterestID = ?)
+                    INSERT INTO UserInterests (UserUID, InterestID) VALUES (?, ?)
+                """,
+                (firebase_uid, interest_id, firebase_uid, interest_id)
+            )
+            conn.commit()
+            return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def remove_user_interest(firebase_uid, interest_name):
+        """Remove an interest from a user"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                DELETE ui FROM UserInterests ui
+                INNER JOIN Interests i ON ui.InterestID = i.InterestID
+                WHERE ui.UserUID = ? AND i.Name = ?
+                """,
+                (firebase_uid, interest_name)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def set_user_interests(firebase_uid, interest_names):
+        """Set user interests (replaces all existing interests)"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Remove all existing interests for the user
+            cursor.execute("DELETE FROM UserInterests WHERE UserUID = ?", (firebase_uid,))
+            
+            # Add new interests
+            for interest_name in interest_names:
+                # Get or create interest
+                cursor.execute("SELECT InterestID FROM Interests WHERE Name = ?", (interest_name,))
+                row = cursor.fetchone()
+                
+                if row:
+                    interest_id = row[0]
+                else:
+                    # Create new interest
+                    cursor.execute(
+                        "INSERT INTO Interests (Name) VALUES (?)",
+                        (interest_name,)
+                    )
+                    interest_id = cursor.lastrowid
+                
+                # Add user-interest relationship
+                cursor.execute(
+                    "INSERT INTO UserInterests (UserUID, InterestID) VALUES (?, ?)",
+                    (firebase_uid, interest_id)
+                )
+            
+            conn.commit()
+            return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
     def update_user(firebase_uid, **kwargs):
         """Update user information"""
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
-            # Build dynamic update query
+            # Handle interests separately
+            interests = kwargs.pop('interests', None)
+            
+            # Build dynamic update query for basic fields
             update_fields = []
             values = []
             
@@ -109,6 +235,8 @@ class User:
                     update_fields.append(f"{db_field} = ?")
                     values.append(kwargs[param_name])
             
+            # Update basic user fields if any
+            updated_basic = False
             if update_fields:
                 update_fields.append("UpdatedAt = GETDATE()")
                 query = f"UPDATE Users SET {', '.join(update_fields)} WHERE FirebaseUID = ?"
@@ -116,11 +244,43 @@ class User:
                 
                 cursor.execute(query, values)
                 conn.commit()
-                return True
-            return False
+                updated_basic = True
+            
+            # Handle interests update
+            updated_interests = False
+            if interests is not None:
+                # Close current connection and use the static method
+                conn.close()
+                User.set_user_interests(firebase_uid, interests)
+                updated_interests = True
+            
+            return updated_basic or updated_interests
         except Exception as e:
-            conn.rollback()
+            try:
+                conn.rollback()
+            except Exception:
+                pass
             raise e
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    
+    @staticmethod
+    def get_all_interests():
+        """Get all available interests in the system"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT Name, Description FROM Interests ORDER BY Name"
+            )
+            rows = cursor.fetchall()
+            return [{
+                "name": row[0],
+                "description": row[1] if row[1] else None
+            } for row in rows]
         finally:
             conn.close()
 
