@@ -270,8 +270,6 @@ class TestUser:
         assert str(exc_info.value) == "Database error"
         mock_conn.rollback.assert_called_once()
         mock_conn.close.assert_called_once()
-        mock_conn.rollback.assert_called_once()
-        mock_conn.close.assert_called_once()
     
     @patch('app.models.DatabaseConnection.get_connection')
     def test_get_user_interests_by_uid(self, mock_get_connection):
