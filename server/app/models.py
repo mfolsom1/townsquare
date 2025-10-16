@@ -398,7 +398,6 @@ class Event:
         finally:
             conn.close()
 
-
     @staticmethod
     def update_event(event_id, organizer_uid, **kwargs):
         conn = DatabaseConnection.get_connection()
@@ -449,4 +448,44 @@ class Event:
         finally:
             conn.close()
             
+    @staticmethod
+    def get_friend_events(firebase_uid):
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT DISTINCT e.*
+                FROM Events e
+                JOIN RSVPs r ON e.EventID = r.EventID
+                JOIN SocialConnections s ON s.FollowingUID = r.UserUID
+                WHERE s.FollowerUID = ?
+                  AND r.Status IN ('Going', 'Interested')
+                """,
+                (firebase_uid,)
+            )
+            rows = cursor.fetchall()
+            if rows:
+                return [
+                    Event(
+                        event_id=row[0],
+                        organizer_uid=row[1],
+                        title=row[2],
+                        description=row[3],
+                        start_time=row[4],
+                        end_time=row[5],
+                        location=row[6],
+                        category_id=row[7],
+                        max_attendees=row[8],
+                        image_url=row[9],
+                        created_at=row[10],
+                        updated_at=row[11],
+                    )
+                    for row in rows
+                ]
+            return []
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
 
