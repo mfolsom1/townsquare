@@ -283,6 +283,145 @@ class User:
             } for row in rows]
         finally:
             conn.close()
+    
+    @staticmethod
+    def follow_user(follower_uid, following_uid):
+        """Follow another user"""
+        if follower_uid == following_uid:
+            raise ValueError("Cannot follow yourself")
+        
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if both users exist
+            cursor.execute("SELECT COUNT(*) FROM Users WHERE FirebaseUID IN (?, ?)", (follower_uid, following_uid))
+            count = cursor.fetchone()[0]
+            if count != 2:
+                raise ValueError("One or both users do not exist")
+            
+            # Check if already following
+            cursor.execute(
+                "SELECT COUNT(*) FROM SocialConnections WHERE FollowerUID = ? AND FollowingUID = ?",
+                (follower_uid, following_uid)
+            )
+            if cursor.fetchone()[0] > 0:
+                return False  # Already following
+            
+            # Create follow relationship
+            cursor.execute(
+                "INSERT INTO SocialConnections (FollowerUID, FollowingUID) VALUES (?, ?)",
+                (follower_uid, following_uid)
+            )
+            conn.commit()
+            return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def unfollow_user(follower_uid, following_uid):
+        """Unfollow a user"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "DELETE FROM SocialConnections WHERE FollowerUID = ? AND FollowingUID = ?",
+                (follower_uid, following_uid)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_following(firebase_uid):
+        """Get list of users that this user is following"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT u.FirebaseUID, u.Username, u.FirstName, u.LastName, sc.CreatedAt
+                FROM SocialConnections sc
+                INNER JOIN Users u ON sc.FollowingUID = u.FirebaseUID
+                WHERE sc.FollowerUID = ?
+                ORDER BY sc.CreatedAt DESC
+                """,
+                (firebase_uid,)
+            )
+            rows = cursor.fetchall()
+            return [{
+                "firebase_uid": row[0],
+                "username": row[1],
+                "first_name": row[2],
+                "last_name": row[3],
+                "followed_at": row[4].isoformat() if hasattr(row[4], 'isoformat') else row[4] if row[4] else None
+            } for row in rows]
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_followers(firebase_uid):
+        """Get list of users that are following this user"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT u.FirebaseUID, u.Username, u.FirstName, u.LastName, sc.CreatedAt
+                FROM SocialConnections sc
+                INNER JOIN Users u ON sc.FollowerUID = u.FirebaseUID
+                WHERE sc.FollowingUID = ?
+                ORDER BY sc.CreatedAt DESC
+                """,
+                (firebase_uid,)
+            )
+            rows = cursor.fetchall()
+            return [{
+                "firebase_uid": row[0],
+                "username": row[1],
+                "first_name": row[2],
+                "last_name": row[3],
+                "followed_at": row[4].isoformat() if hasattr(row[4], 'isoformat') else row[4] if row[4] else None
+            } for row in rows]
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def is_following(follower_uid, following_uid):
+        """Check if one user is following another"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT COUNT(*) FROM SocialConnections WHERE FollowerUID = ? AND FollowingUID = ?",
+                (follower_uid, following_uid)
+            )
+            return cursor.fetchone()[0] > 0
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_user_by_username(username):
+        """Get user by username"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT FirebaseUID, Username, Email, FirstName, LastName, Location, Bio, CreatedAt, UpdatedAt FROM Users WHERE Username = ?",
+                (username,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return User(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8])
+            return None
+        finally:
+            conn.close()
 
 class Event:
     def __init__ (self, event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees=None, image_url=None, created_at=None, updated_at=None):

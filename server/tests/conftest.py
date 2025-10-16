@@ -32,7 +32,11 @@ def mock_db_connection():
         mock_conn.commit.return_value = None
         mock_conn.rollback.return_value = None
         mock_conn.close.return_value = None
-        yield mock_connect, mock_conn, mock_cursor
+        
+        # Configure mock cursor for database initialization
+        mock_cursor.fetchone.return_value = [1]  # Table exists
+        
+        yield mock_connect
 
 @pytest.fixture
 def mock_firebase():
@@ -59,3 +63,32 @@ def sample_user_data():
         'location': 'Test City',
         'bio': 'Test bio'
     }
+
+@pytest.fixture
+def client(mock_config, mock_db_connection):
+    """Flask test client fixture"""
+    with patch('app.database.pyodbc.connect') as mock_db:
+        # Set up the mock for database initialization
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_db.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+        mock_cursor.fetchone.return_value = [1]  # Table exists
+        
+        from app import create_app
+        app = create_app()
+        app.config['TESTING'] = True
+        with app.test_client() as client:
+            yield client
+
+@pytest.fixture
+def mock_require_auth():
+    """Mock the require_auth decorator"""
+    with patch('app.routes.require_auth') as mock_auth:
+        def mock_decorator(func):
+            def wrapper(*args, **kwargs):
+                # Simulate passing firebase_uid as first argument
+                return func('test-firebase-uid', *args, **kwargs)
+            return wrapper
+        mock_auth.side_effect = mock_decorator
+        yield mock_auth
