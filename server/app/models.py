@@ -450,6 +450,7 @@ class Event:
             
     @staticmethod
     def get_friend_events(firebase_uid):
+        # Events that friends the user is following are attending or interested in
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
@@ -489,3 +490,42 @@ class Event:
         finally:
             conn.close()
 
+    @staticmethod
+    def get_friend_created_events(firebase_uid):
+        # Events created by friends the user is following
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT e.*
+                FROM Events e
+                JOIN SocialConnections s ON s.FollowingUID = e.OrganizerUID
+                WHERE s.FollowerUID = ?
+                """,
+                (firebase_uid,)
+            )
+            rows = cursor.fetchall()
+            if rows:
+                return [
+                    Event(
+                        event_id=row[0],
+                        organizer_uid=row[1],
+                        title=row[2],
+                        description=row[3],
+                        start_time=row[4],
+                        end_time=row[5],
+                        location=row[6],
+                        category_id=row[7],
+                        max_attendees=row[8],
+                        image_url=row[9],
+                        created_at=row[10],
+                        updated_at=row[11],
+                    )
+                    for row in rows
+                ]
+            return []
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
