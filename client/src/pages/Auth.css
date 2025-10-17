@@ -1,3 +1,11 @@
+/* Theme colors */
+:root {
+  --primary-color: #111;      
+  --secondary-color: #fff;
+  --accent-color: #5163BC;
+  --button-color-selected: #343434;
+  --error-color: #a20000;
+}
 
 /* temp styling */
 
@@ -7,11 +15,9 @@
 .auth-card label { display:flex; flex-direction:column; gap:6px; margin:12px 0; font-weight:600; }
 .auth-card input { padding:12px 14px; border:1px solid #ddd; border-radius:10px; font-size:14px; }
 .auth-btn { width:100%; padding:12px 16px; border-radius:10px; border:none; cursor:pointer; margin-top:12px;}
-.auth-btn.primary { background:#111; color:#fff; }
+.auth-btn.primary { background:var(--button-color-selected); color:#fff; }
 .auth-error { background:#ffe8e8; color:#a20000; border:1px solid #ffc2c2; padding:8px 10px; border-radius:8px; margin-bottom:10px; }
 .auth-switch { text-align:center; margin-top:12px; }
-
-
 
 /* PASSWORD VALIDATION */
 .auth-card input.valid-input {        
