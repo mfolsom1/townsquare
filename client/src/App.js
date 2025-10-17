@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import RequireAuth from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthContext";
+import ProfileContainer from "./pages/ProfileContainer";
 import Profile from "./pages/Profile";
 
 
@@ -40,7 +41,12 @@ function App() {
                   <Route path="/following" element={<Following />} />
                   <Route path="/saved" element={<Saved />} />
                   <Route path="*" element={<Discover />} />
-                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/profile" element=
+                  {<RequireAuth>
+                    <ProfileContainer />
+                    </RequireAuth>
+                  }
+                  />
                 </Routes>
               </>
             </RequireAuth>
