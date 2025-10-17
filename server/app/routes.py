@@ -16,8 +16,13 @@ def register_routes(app):
     def verify_firebase_token():
         """Verify Firebase ID token and create/get user in Azure SQL"""
         try:
-            # Get the ID token from the request
-            id_token = request.json.get('idToken')
+            # Get the ID token and additional user data from the request
+            request_data = request.json or {}
+            id_token = request_data.get('idToken')
+            user_data = request_data.get('userData', {})
+            
+            print(f"Backend received user_data: {user_data}")  # Debug log
+            
             if not id_token:
                 return jsonify({"error": "No ID token provided"}), 400
             
@@ -25,12 +30,12 @@ def register_routes(app):
             decoded_token = auth.verify_id_token(id_token)
             firebase_uid = decoded_token['uid']
             email = decoded_token.get('email')
-            username = decoded_token.get('name') or email.split('@')[0]  # Use email prefix as fallback
             
             # Check if user exists in our database
             existing_user = User.get_user_by_firebase_uid(firebase_uid)
             
             if existing_user:
+                print(f"User already exists: {existing_user.username}")  # Debug log
                 # User exists, return user data
                 return jsonify({
                     "success": True,
@@ -38,10 +43,29 @@ def register_routes(app):
                 })
             else:
                 # User doesn't exist, create new user
+                # For new user creation, username is mandatory
+                username = user_data.get('username')
+                if not username:
+                    return jsonify({"error": "Username is required for account creation"}), 400
+                
+                print(f"Creating new user with username: {username}")  # Debug log
+                
+                # Validate username format
+                username = username.strip()
+                if len(username) < 3 or len(username) > 20:
+                    return jsonify({"error": "Username must be between 3 and 20 characters"}), 400
+                
+                if not username.replace('_', '').replace('-', '').isalnum():
+                    return jsonify({"error": "Username can only contain letters, numbers, underscores, and hyphens"}), 400
                 try:
-                    # Extract additional info from Firebase token if available
-                    first_name = decoded_token.get('given_name')
-                    last_name = decoded_token.get('family_name')
+                    # Extract name info from user_data or Firebase token
+                    full_name = user_data.get('name') or decoded_token.get('name') or ''
+                    name_parts = full_name.split(' ', 1) if full_name else ['', '']
+                    
+                    first_name = (decoded_token.get('given_name') or 
+                                 name_parts[0] if name_parts[0] else None)
+                    last_name = (decoded_token.get('family_name') or 
+                                name_parts[1] if len(name_parts) > 1 and name_parts[1] else None)
                     
                     new_user = User.create_user(
                         firebase_uid=firebase_uid, 
@@ -87,19 +111,35 @@ def register_routes(app):
     def update_user_profile(firebase_uid):
         """Update user profile (requires Firebase token in Authorization header)"""
         try:
+            # Explicit check for missing or invalid firebase_uid
+            if not firebase_uid:
+                return jsonify({"error": "You must be logged in to update your profile."}), 401
+
             update_data = request.json or {}
-            allowed_fields = ['username', 'first_name', 'last_name', 'location', 'bio']
-            
+            allowed_fields = ['username', 'first_name', 'last_name', 'location', 'bio', 'interests']
+
             # Filter and validate data
             filtered_data = {k: v for k, v in update_data.items() 
                            if k in allowed_fields and v is not None}
-            
+
+            # Special validation for interests
+            if 'interests' in filtered_data:
+                interests = filtered_data['interests']
+                if not isinstance(interests, list):
+                    return jsonify({"error": "Interests must be provided as a list"}), 400
+                # Validate each interest is a string and not empty
+                for interest in interests:
+                    if not isinstance(interest, str) or not interest.strip():
+                        return jsonify({"error": "Each interest must be a non-empty string"}), 400
+                # Clean up interest names (strip whitespace)
+                filtered_data['interests'] = [interest.strip() for interest in interests]
+
             if not filtered_data:
                 return jsonify({"error": "No valid fields to update"}), 400
-            
+
             # Update user in database
             success = User.update_user(firebase_uid, **filtered_data)
-            
+
             if success:
                 # Return updated user data
                 user = User.get_user_by_firebase_uid(firebase_uid)
@@ -110,20 +150,102 @@ def register_routes(app):
                 })
             else:
                 return jsonify({"error": "No fields were updated"}), 400
-            
-        except pyodbc.IntegrityError:
-            return jsonify({"error": "Username already exists"}), 409
+
+        except pyodbc.IntegrityError as e:
+            # Return a clearer, generic integrity error for profile updates.
+            # The previous message always said 'Username already exists' which is
+            # misleading when updating interests or other fields. Include the
+            # original error text in the response for easier debugging (can be
+            # removed or reduced in production).
+            return jsonify({"error": "Database integrity error", "details": str(e)}), 409
         except Exception as e:
             return jsonify({"error": f"Failed to update user profile: {str(e)}"}), 500
+    
+    @app.route('/api/user/interests', methods=['GET'])
+    @require_auth
+    def get_user_interests(firebase_uid):
+        """Get user's interests"""
+        try:
+            interests = User.get_user_interests_by_uid(firebase_uid)
+            return jsonify({
+                "success": True,
+                "interests": interests
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get user interests: {str(e)}"}), 500
+    
+    @app.route('/api/user/interests', methods=['POST'])
+    @require_auth
+    def add_user_interest(firebase_uid):
+        """Add an interest to user's profile"""
+        try:
+            data = request.json or {}
+            interest_name = data.get('interest')
+            
+            if not interest_name or not isinstance(interest_name, str) or not interest_name.strip():
+                return jsonify({"error": "Interest name is required and must be a non-empty string"}), 400
+            
+            interest_name = interest_name.strip()
+            success = User.add_user_interest(firebase_uid, interest_name)
+            
+            if success:
+                interests = User.get_user_interests_by_uid(firebase_uid)
+                return jsonify({
+                    "success": True,
+                    "message": "Interest added successfully",
+                    "interests": interests
+                })
+            else:
+                return jsonify({"error": "Failed to add interest"}), 400
+            
+        except Exception as e:
+            return jsonify({"error": f"Failed to add interest: {str(e)}"}), 500
+    
+    @app.route('/api/user/interests', methods=['DELETE'])
+    @require_auth
+    def remove_user_interest(firebase_uid):
+        """Remove an interest from user's profile"""
+        try:
+            data = request.json or {}
+            interest_name = data.get('interest')
+            
+            if not interest_name or not isinstance(interest_name, str) or not interest_name.strip():
+                return jsonify({"error": "Interest name is required and must be a non-empty string"}), 400
+            
+            interest_name = interest_name.strip()
+            success = User.remove_user_interest(firebase_uid, interest_name)
+            
+            if success:
+                interests = User.get_user_interests_by_uid(firebase_uid)
+                return jsonify({
+                    "success": True,
+                    "message": "Interest removed successfully",
+                    "interests": interests
+                })
+            else:
+                return jsonify({"error": "Interest not found or already removed"}), 404
+            
+        except Exception as e:
+            return jsonify({"error": f"Failed to remove interest: {str(e)}"}), 500
+    
+    @app.route('/api/interests', methods=['GET'])
+    def get_all_interests():
+        """Get all available interests in the system"""
+        try:
+            interests = User.get_all_interests()
+            return jsonify({
+                "success": True,
+                "interests": interests
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get interests: {str(e)}"}), 500
     
     # ===== Event functions ===== #
     @app.route('/events', methods=['GET'])
     def get_events():
         try:
             events = Event.get_all_events()
-            if not events:
-                return jsonify({"error": "Couldn't find any events"}), 404
-
+            # Returns a 200 OK with an empty list if no events are found, which is more conventional.
             return jsonify({
                 "success": True,
                 "events": [event.to_dict() for event in events]
@@ -145,7 +267,7 @@ def register_routes(app):
             }), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-    
+            
     @app.route('/events', methods=['POST'])
     @require_auth
     def create_event(firebase_uid):
@@ -153,8 +275,8 @@ def register_routes(app):
             # Parse JSON data from the request
             data = request.get_json()
 
-            # Validate required fields
-            required_fields = ['Title', 'StartTime', 'EndTime', 'Location']
+            # Validate required fields (CategoryID is now included)
+            required_fields = ['Title', 'StartTime', 'EndTime', 'Location', 'CategoryID']
             missing_fields = [field for field in required_fields if field not in data]
             if missing_fields:
                 return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
@@ -167,7 +289,7 @@ def register_routes(app):
                 start_time=(data['StartTime']),
                 end_time=(data['EndTime']),
                 location=data['Location'],
-                category_id=data.get('CategoryID'),
+                category_id=data['CategoryID'], # Now a required field
                 max_attendees=data.get('MaxAttendees'),
                 image_url=data.get('ImageURL')
             )
@@ -181,23 +303,40 @@ def register_routes(app):
             return jsonify({"error": str(ve)}), 400
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-    
-    @app.route('/events/<int:event_id>', methods=['PUT'])
+            
+    # Changed to PATCH for partial updates, which is more REST-compliant.
+    @app.route('/events/<int:event_id>', methods=['PATCH'])
     @require_auth
     def update_event(firebase_uid, event_id):
         try:
             data = request.get_json()
 
-            update_fields = ['title', 'description', 'start_time', 'end_time', 'location', 'category_id', 'max_attendees', 'image_url']
+            # Keys are now PascalCase to be consistent with the create_event endpoint.
+            update_fields = ['Title', 'Description', 'StartTime', 'EndTime', 'Location', 'CategoryID', 'MaxAttendees', 'ImageURL']
             update_data = {field: data[field] for field in update_fields if field in data}
+            
             if not update_data:
                 return jsonify({"error": "No fields to update provided"}), 400
+
+            # Convert PascalCase keys from JSON to snake_case for the model function call
+            update_kwargs = {
+                'title': update_data.get('Title'),
+                'description': update_data.get('Description'),
+                'start_time': update_data.get('StartTime'),
+                'end_time': update_data.get('EndTime'),
+                'location': update_data.get('Location'),
+                'category_id': update_data.get('CategoryID'),
+                'max_attendees': update_data.get('MaxAttendees'),
+                'image_url': update_data.get('ImageURL')
+            }
+            # Remove keys that were not provided
+            update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None}
 
 
             updated_event = Event.update_event(
                 event_id,
                 firebase_uid,
-                **update_data
+                **update_kwargs
             )
 
             if not updated_event:
@@ -212,7 +351,7 @@ def register_routes(app):
             return jsonify({"error": str(ve)}), 400
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-    
+            
     @app.route('/events/<int:event_id>', methods=['DELETE'])
     @require_auth
     def delete_event(firebase_uid, event_id):
@@ -228,7 +367,6 @@ def register_routes(app):
             }), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-
     
     # ===== Recommendation functions =====
     @app.route('/recommendations/<int:user_id>', methods=['GET'])

@@ -19,7 +19,7 @@ CREATE TABLE EventCategories (
     CategoryID INT IDENTITY(1,1) PRIMARY KEY,
     Name NVARCHAR(100) NOT NULL UNIQUE,
     Description NVARCHAR(MAX),
-    Color CHAR(7) CHECK (Color LIKE '#[0-9A-Fa-f]{6}'), -- Hex color format
+    Color CHAR(7) CHECK (Color LIKE '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'), -- Hex color format
     CreatedAt DATETIME2 DEFAULT GETDATE() NOT NULL
 );
 
@@ -55,7 +55,7 @@ CREATE TABLE EventTags (
     TagID INT IDENTITY(1,1) PRIMARY KEY,
     Name NVARCHAR(50) NOT NULL UNIQUE,
     Description NVARCHAR(200),
-    Color CHAR(7) CHECK (Color IS NULL OR Color LIKE '#[0-9A-Fa-f]{6}'), -- Hex color format, nullable
+    Color CHAR(7) CHECK (Color IS NULL OR Color LIKE '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'), -- Hex color format, nullable
     CreatedAt DATETIME2 DEFAULT GETDATE() NOT NULL
 );
 

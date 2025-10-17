@@ -1,17 +1,124 @@
+/* General page layout */
 .ts-page {
-    padding: 20px;              /* space below the navbar */
-  }
-  
-  .ts-title {
-    margin: 8px 0 2px;
-    font-size: 26px;            
-    font-weight: 700;
-    color: #1a1a1a;
-  }
-  
-  .ts-subtitle {
-    margin: 0 0 18px;
-    font-size: 13px;
-    color: #7a7a7a;             
-  }
-  
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1.5rem; /* Added more horizontal padding */
+}
+
+.ts-title {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.ts-subtitle {
+    font-size: 1.1rem;
+    color: #555;
+    margin-bottom: 2.5rem;
+}
+
+/* --- Event Grid --- */
+.event-grid {
+    display: grid;
+    /* CHANGE: Increased gap for more separation between cards */
+    gap: 2rem;
+    /* CHANGE: Creates smaller cards by fitting more into a row on larger screens */
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* --- Event Card (The "Box") --- */
+.event-card {
+    background-color: #ffffff;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    /* CHANGE: These properties create the distinct "box" effect */
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    overflow: hidden; /* Ensures the image respects the rounded corners */
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.event-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* --- Card Image & Badge --- */
+.event-card-image-wrapper {
+    position: relative;
+    /* CHANGE: Reduced image height to make the card more compact */
+    height: 150px;
+}
+
+.event-card-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Prevents the image from stretching */
+}
+
+.event-card-category-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    /* CHANGE: Smaller font for the badge */
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* --- Card Body & Text --- */
+.event-card-body {
+    padding: 1rem; /* Slightly reduced padding */
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Ensures cards in the same row have the same height */
+}
+
+.event-card-title {
+    /* CHANGE: Smaller font size */
+    font-size: 1.1rem;
+    margin: 0 0 0.25rem 0;
+}
+
+.event-card-time,
+.event-card-location {
+    /* CHANGE: Smaller font size */
+    font-size: 0.8rem;
+    color: #666;
+    margin: 0.1rem 0;
+}
+
+.event-card-description {
+    /* CHANGE: Smaller font size */
+    font-size: 0.85rem;
+    color: #333;
+    margin: 0.75rem 0;
+    line-height: 1.4;
+    flex-grow: 1; /* Pushes the attendee count to the bottom */
+}
+
+.event-card-attendees {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    /* CHANGE: Smaller font size */
+    font-size: 0.8rem;
+    color: #555;
+    margin-top: auto; /* Aligns this item to the bottom of the card */
+}
+
+/* --- Loading and Error States --- */
+.ts-loading, .ts-error {
+    text-align: center;
+    padding: 3rem;
+    font-size: 1.2rem;
+    color: #555;
+}
+
+.ts-error {
+    color: #d9534f;
+}

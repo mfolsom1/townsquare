@@ -13,14 +13,26 @@
     - Set `DB_PASSWORD` to the value provided by Aaron 
 5. **Install the ODBC Driver 18 for SQL Server:**
     - [Download and install instructions (Microsoft Docs)](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server?view=sql-server-ver17)
-6. **Set up Firebase Admin credentials:**
+6. **Set up an ODBC Data Source for the Azure SQL Server:**
+   - Open **ODBC Data Sources (64-bit)** on your machine.
+   - Go to the **System DSN** tab and click **Add**.
+   - Choose **ODBC Driver 18 for SQL Server**, then click **Finish**.
+   - In the setup window:
+     - **Name:** `TownSquareDB`
+     - **Server:** `townsquare.database.windows.net`
+     - **Authentication:** SQL Server Authentication
+     - **Login ID:** `townsquare_admin`
+     - **Password:** provided by Aaron
+   - Click **Next**, then select **Change the default database to:** `townsquare`
+   - Continue through the prompts and click **Test Data Source**, it should report “Tests completed successfully.”
+7. **Set up Firebase Admin credentials:**
     - In your `.env`, set:
       ```
       GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/firebase-service-account.json
       ```
     - To get this JSON file, look in the Discord or message Aaron.
 
-
+---
 
 # Townsquare
 Web application with a React frontend, Flask API, TensorFlow-based recommendations, Firebase Authentication, and Azure SQL Database.

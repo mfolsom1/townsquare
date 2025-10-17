@@ -47,13 +47,12 @@ def test_connection():
     """Test database connection"""
     try:
         print("🔄 Testing database connection...")
-        conn = pyodbc.connect(CONN_STR)
-        cursor = conn.cursor()
-        cursor.execute("SELECT @@VERSION;")
-        version = cursor.fetchone()[0]
-        print(f"✅ Connected successfully!")
-        print(f"   SQL Server version: {version.split(' - ')[0]}")
-        conn.close()
+        with pyodbc.connect(CONN_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT @@VERSION;")
+            version = cursor.fetchone()[0]
+            print(f"✅ Connected successfully!")
+            print(f"   SQL Server version: {version.split(' - ')[0]}")
         return True
     except Exception as e:
         print(f"❌ Connection failed: {e}")
@@ -79,7 +78,9 @@ def drop_existing_schema(conn, tables):
     
     print(f"🔄 Found {len(tables)} existing tables. Dropping them...")
     
-    # Drop order to handle foreign key constraints
+    # NOTE: A hardcoded drop order is brittle. A more robust solution would be to
+    # dynamically disable all foreign key constraints, drop tables, then recreate.
+    # However, for a known schema, this ordered approach is acceptable.
     drop_order = [
         'UserActivity', 'RSVPs', 'SocialConnections', 'UserInterests', 
         'EventTagAssignments', 'Events', 'EventTags', 'EventCategories', 
@@ -109,80 +110,18 @@ def drop_existing_schema(conn, tables):
             print(f"   Warning: Could not drop {table}: {e}")
 
 def parse_sql_statements(sql_content):
-    """Parse SQL file into individual statements, handling multi-line statements properly"""
-    # Remove SQL comments but preserve the structure
-    lines = []
-    for line in sql_content.split('\n'):
-        # Remove comments but keep the line structure
-        if '--' in line:
-            line = line[:line.index('--')]
-        line = line.rstrip()
-        if line:  # Keep non-empty lines
-            lines.append(line)
+    """
+    Parse a T-SQL script into a list of batches separated by 'GO'.
+    This is the standard batch separator for SQL Server / Azure SQL.
+    """
+    # Split the script by 'GO' on its own line, case-insensitive
+    statements = re.split(r'^\s*GO\s*$', sql_content, flags=re.IGNORECASE | re.MULTILINE)
     
-    # Rejoin with spaces, preserving line breaks where needed
-    sql_content = '\n'.join(lines)
-    
-    # Split by semicolon, but be careful with quoted strings and brackets
-    statements = []
-    current_statement = ""
-    in_single_quotes = False
-    in_double_quotes = False
-    paren_depth = 0
-    
-    i = 0
-    while i < len(sql_content):
-        char = sql_content[i]
-        
-        # Handle quotes
-        if char == "'" and not in_double_quotes:
-            if i == 0 or sql_content[i-1] != '\\':
-                in_single_quotes = not in_single_quotes
-        elif char == '"' and not in_single_quotes:
-            if i == 0 or sql_content[i-1] != '\\':
-                in_double_quotes = not in_double_quotes
-        
-        # Handle parentheses depth
-        if not in_single_quotes and not in_double_quotes:
-            if char == '(':
-                paren_depth += 1
-            elif char == ')':
-                paren_depth -= 1
-        
-        # Split on semicolon only when not in quotes and at root level
-        if char == ';' and not in_single_quotes and not in_double_quotes and paren_depth == 0:
-            if current_statement.strip():
-                statements.append(current_statement.strip())
-            current_statement = ""
-        else:
-            current_statement += char
-        
-        i += 1
-    
-    # Add the last statement if it doesn't end with semicolon
-    if current_statement.strip():
-        statements.append(current_statement.strip())
-    
-    # Filter out empty statements
-    return [stmt for stmt in statements if stmt.strip()]
+    # Filter out any empty statements that may result from the split
+    return [stmt.strip() for stmt in statements if stmt.strip()]
 
-def deploy_schema(conn, force_recreate=False, auto_confirm=False):
-    """Deploy the schema from schema.sql file"""
-    schema_file = Path(__file__).parent.parent / 'schema.sql'
-    
-    if not schema_file.exists():
-        print(f"❌ Schema file not found: {schema_file}")
-        return False
-    
-    print(f"🔄 Reading schema from: {schema_file}")
-    
-    try:
-        with open(schema_file, 'r', encoding='utf-8') as f:
-            sql_content = f.read()
-    except Exception as e:
-        print(f"❌ Error reading schema file: {e}")
-        return False
-    
+def deploy_schema(conn, sql_content, force_recreate=False, auto_confirm=False):
+    """Deploy the schema from the provided SQL content"""
     # Check existing tables
     existing_tables = check_existing_tables(conn)
     
@@ -198,17 +137,9 @@ def deploy_schema(conn, force_recreate=False, auto_confirm=False):
         print("="*60)
         
         if not auto_confirm:
-            if force_recreate:
-                print("⚠️  --force flag detected, but confirmation still required for safety.")
-            
-            print("\nTo proceed, you must explicitly confirm this destructive action.")
             response = input("Type 'DELETE ALL TABLES' to confirm (or anything else to cancel): ")
             if response != 'DELETE ALL TABLES':
-                print("❌ Deployment cancelled - tables were not deleted")
-                print("💡 To deploy safely, either:")
-                print("   • Manually drop tables first, or")
-                print("   • Use a fresh database, or") 
-                print("   • Run with --yes flag for automated deployment")
+                print("❌ Deployment cancelled by user.")
                 return False
         else:
             print("🤖 Auto-confirmation enabled (--yes flag), proceeding with table deletion...")
@@ -220,173 +151,84 @@ def deploy_schema(conn, force_recreate=False, auto_confirm=False):
     
     # Parse and execute SQL statements
     statements = parse_sql_statements(sql_content)
-    print(f"🔄 Executing {len(statements)} SQL statements...")
+    print(f"\n🔄 Executing {len(statements)} SQL batches...")
     
     cursor = conn.cursor()
     
-    for i, statement in enumerate(statements, 1):
-        try:
-            # Show progress for table creation
-            if statement.upper().startswith('CREATE TABLE'):
-                table_name = re.search(r'CREATE TABLE\s+(\w+)', statement, re.IGNORECASE)
-                if table_name:
-                    print(f"   [{i}/{len(statements)}] Creating table: {table_name.group(1)}")
-            elif statement.upper().startswith('CREATE INDEX'):
-                index_name = re.search(r'CREATE.*INDEX\s+(\w+)', statement, re.IGNORECASE)
-                if index_name:
-                    print(f"   [{i}/{len(statements)}] Creating index: {index_name.group(1)}")
-            else:
-                print(f"   [{i}/{len(statements)}] Executing statement...")
-            
+    try:
+        # Execute the entire deployment within a single transaction
+        for i, statement in enumerate(statements, 1):
+            print(f"   [{i}/{len(statements)}] Executing batch...")
             cursor.execute(statement)
-            conn.commit()
-            
-        except Exception as e:
-            print(f"❌ Error executing statement {i}: {e}")
-            print(f"   Statement: {statement[:100]}...")
-            conn.rollback()
-            return False
-    
-    print("✅ Schema deployed successfully!")
-    return True
-
-def verify_deployment(conn):
-    """Verify that all tables were created successfully"""
-    print("🔄 Verifying deployment...")
-    
-    expected_tables = [
-        'Users', 'EventCategories', 'Events', 'EventTags', 
-        'EventTagAssignments', 'Interests', 'UserInterests', 
-        'SocialConnections', 'RSVPs', 'UserActivity'
-    ]
-    
-    cursor = conn.cursor()
-    
-    # Check tables
-    cursor.execute("""
-        SELECT TABLE_NAME 
-        FROM INFORMATION_SCHEMA.TABLES 
-        WHERE TABLE_TYPE = 'BASE TABLE'
-        AND TABLE_SCHEMA = 'dbo'
-        ORDER BY TABLE_NAME
-    """)
-    
-    created_tables = [row[0] for row in cursor.fetchall()]
-    
-    print(f"📋 Created tables ({len(created_tables)}):")
-    for table in created_tables:
-        status = "✅" if table in expected_tables else "⚠️"
-        print(f"   {status} {table}")
-    
-    # Check for missing tables
-    missing_tables = [table for table in expected_tables if table not in created_tables]
-    if missing_tables:
-        print(f"\n❌ Missing tables:")
-        for table in missing_tables:
-            print(f"   - {table}")
+        
+        # If all statements succeeded, commit the transaction
+        print("✅ All batches executed successfully. Committing transaction...")
+        conn.commit()
+        
+    except Exception as e:
+        print(f"\n❌ FATAL ERROR executing batch {i}: {e}")
+        print(f"   Failed Batch Content: {statement[:200]}...")
+        print("🔄 Rolling back all changes from this deployment.")
+        conn.rollback() # Roll back the entire transaction on failure
         return False
     
-    # Check indexes
-    cursor.execute("""
-        SELECT COUNT(*) 
-        FROM sys.indexes 
-        WHERE object_id IN (
-            SELECT object_id 
-            FROM sys.tables 
-            WHERE schema_id = SCHEMA_ID('dbo')
-        )
-        AND type > 0  -- Exclude heaps
-    """)
-    
-    index_count = cursor.fetchone()[0]
-    print(f"📊 Created indexes: {index_count}")
-    
-    print("✅ Deployment verification completed successfully!")
+    print("\n✅ Schema deployed successfully!")
     return True
 
-def perform_safety_check(conn, force_recreate, auto_confirm):
+def verify_deployment(conn, sql_content):
+    """Verify that all tables from the schema file were created."""
+    print("\n🔄 Verifying deployment...")
+    
+    # Dynamically find all 'CREATE TABLE' statements in the schema file
+    expected_tables = re.findall(r'CREATE TABLE\s+(?:\[dbo\]\.)?\[?(\w+)\]?', sql_content, re.IGNORECASE)
+    expected_tables = sorted(list(set(expected_tables))) # Get unique, sorted list
+
+    if not expected_tables:
+        print("⚠️ Could not find any 'CREATE TABLE' statements in schema file to verify against.")
+        return True
+
+    print(f"🔎 Expecting to find {len(expected_tables)} tables based on schema.sql...")
+
+    created_tables = check_existing_tables(conn)
+    
+    print(f"📋 Found {len(created_tables)} tables in the database:")
+    all_found = True
+    for table in expected_tables:
+        if table in created_tables:
+            print(f"   ✅ {table}")
+        else:
+            print(f"   ❌ {table} (MISSING!)")
+            all_found = False
+
+    if not all_found:
+        print("\n❌ Verification failed. Not all expected tables were created.")
+        return False
+
+    print("\n✅ Deployment verification completed successfully!")
+    return True
+
+def perform_safety_check(conn, force_recreate):
     """Perform initial safety check and warn about potential data loss"""
     existing_tables = check_existing_tables(conn)
     
-    if existing_tables:
+    if existing_tables and not force_recreate:
         print("\n" + "🛑" * 20)
         print("🚨 SAFETY WARNING: DATABASE NOT EMPTY")
         print("🛑" * 20)
-        print(f"This database contains {len(existing_tables)} existing tables:")
-        for table in sorted(existing_tables):
-            print(f"   • {table}")
+        print(f"This database contains {len(existing_tables)} existing tables.")
+        print("\n❌ DEPLOYMENT BLOCKED FOR SAFETY")
+        print("   To proceed, you must use the --force flag to acknowledge")
+        print("   that existing tables and data will be dropped.")
+        print("\n💡 Run with: python deploy_schema.py --force")
+        return False
         
-        if not force_recreate:
-            print("\n❌ DEPLOYMENT BLOCKED FOR SAFETY")
-            print("   The database is not empty. To proceed, you must use the --force flag.")
-            print("   This ensures you explicitly acknowledge that existing data will be lost.")
-            print("\n💡 Options:")
-            print("   • Use '--force' flag to allow table recreation (will prompt for confirmation)")
-            print("   • Use '--force --yes' for automated deployment (DANGEROUS)")
-            print("   • Use a different/empty database")
-            print("   • Manually drop existing tables first")
-            return False
-        
-        print(f"\n⚠️  --force flag detected: Deployment will DELETE all {len(existing_tables)} tables!")
-        if not auto_confirm:
-            print("   You will be prompted for confirmation before any changes are made.")
-        else:
-            print("   🤖 --yes flag detected: NO CONFIRMATION PROMPTS (automated mode)")
+    if existing_tables and force_recreate:
+        print("\n⚠️  --force flag detected: The script will drop all existing tables.")
+        print("   You will be prompted for final confirmation before any data is deleted.")
     else:
-        print("\n✅ Database is empty - safe to deploy schema")
+        print("\n✅ Database is empty - safe to deploy schema.")
     
     return True
-
-def main():
-    """Main deployment function"""
-    print("🚀 TownSquare Database Schema Deployment")
-    print("=" * 50)
-    
-    # Parse command line arguments
-    force_recreate = '--force' in sys.argv or '-f' in sys.argv
-    auto_confirm = '--yes' in sys.argv or '-y' in sys.argv
-    
-    if '--help' in sys.argv or '-h' in sys.argv:
-        print_help()
-        return
-    
-    # Show usage information
-    if force_recreate or auto_confirm:
-        print("🔧 Command line flags detected:")
-        if force_recreate:
-            print("   --force: Will recreate existing tables (with confirmation)")
-        if auto_confirm:
-            print("   --yes: Will skip confirmation prompts (DANGEROUS)")
-        print()
-    
-    # Validate environment
-    if not validate_environment():
-        sys.exit(1)
-    
-    # Test connection
-    if not test_connection():
-        sys.exit(1)
-    
-    # Perform safety check
-    try:
-        conn = pyodbc.connect(CONN_STR)
-        
-        if not perform_safety_check(conn, force_recreate, auto_confirm):
-            sys.exit(1)
-        
-        if deploy_schema(conn, force_recreate, auto_confirm):
-            verify_deployment(conn)
-            print("\n🎉 Schema deployment completed successfully!")
-        else:
-            print("\n❌ Schema deployment failed!")
-            sys.exit(1)
-            
-    except Exception as e:
-        print(f"❌ Deployment error: {e}")
-        sys.exit(1)
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 def print_help():
     """Print help information"""
@@ -399,22 +241,64 @@ USAGE:
 OPTIONS:
     -h, --help     Show this help message
     -f, --force    Allow recreation of existing tables (requires confirmation)
-    -y, --yes      Auto-confirm destructive actions (DANGEROUS - use only in CI/CD)
-
-EXAMPLES:
-    python deploy_schema.py                    # Safe deployment, prompts before any changes
-    python deploy_schema.py --force            # Allow table recreation with manual confirmation  
-    python deploy_schema.py --force --yes      # Automated deployment (CI/CD use only)
+    -y, --yes      Auto-confirm destructive actions (DANGEROUS - use in CI/CD)
 
 SAFETY FEATURES:
-    • Script will refuse to run if tables exist (unless --force is used)
-    • Requires explicit typed confirmation before deleting existing tables
-    • --yes flag bypasses confirmations (use only in automated environments)
-    • Each database operation commits immediately with rollback on errors
+    • The script will refuse to run if tables exist, unless --force is used.
+    • Destructive actions require explicit, typed confirmation.
+    • The --yes flag bypasses confirmations (use only in automated environments).
+    • The entire deployment is atomic; it will roll back on any error.
 
-⚠️  WARNING: This script will permanently delete existing tables and data!
-    Always backup your database before running this script on production data.
-    """)
+⚠️  WARNING: This script can permanently delete existing tables and data!
+""")
+
+def main():
+    """Main deployment function"""
+    print("🚀 TownSquare Database Schema Deployment")
+    print("=" * 50)
+    
+    if '--help' in sys.argv or '-h' in sys.argv:
+        print_help()
+        return
+
+    force_recreate = '--force' in sys.argv or '-f' in sys.argv
+    auto_confirm = '--yes' in sys.argv or '-y' in sys.argv
+
+    if not validate_environment() or not test_connection():
+        sys.exit(1)
+
+    # Read the schema file content first
+    schema_file = Path(__file__).resolve().parent.parent / 'schema.sql'
+    if not schema_file.exists():
+        print(f"❌ Schema file not found at: {schema_file}")
+        sys.exit(1)
+        
+    try:
+        with open(schema_file, 'r', encoding='utf-8') as f:
+            sql_content = f.read()
+        print(f"✅ Successfully read schema from: {schema_file}")
+    except Exception as e:
+        print(f"❌ Error reading schema file: {e}")
+        sys.exit(1)
+
+    try:
+        with pyodbc.connect(CONN_STR) as conn:
+            if not perform_safety_check(conn, force_recreate):
+                sys.exit(1)
+            
+            if deploy_schema(conn, sql_content, force_recreate, auto_confirm):
+                if verify_deployment(conn, sql_content):
+                    print("\n🎉 Deployment Succeeded!")
+                else:
+                    print("\n❌ Deployment failed during verification stage.")
+                    sys.exit(1)
+            else:
+                print("\n❌ Schema deployment failed!")
+                sys.exit(1)
+                
+    except Exception as e:
+        print(f"❌ An unexpected error occurred: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
