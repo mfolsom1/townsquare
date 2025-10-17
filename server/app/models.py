@@ -529,3 +529,12 @@ class Event:
             raise e
         finally:
             conn.close()
+
+    @staticmethod
+    def get_friend_feed(firebase_uid):
+        # Combine events friends are attending/interested in and events they created
+        attending = Event.get_friend_events(firebase_uid)
+        created = Event.get_friend_created_events(firebase_uid)
+        combined = attending + [e for e in created if e not in attending]
+        combined.sort(key=lambda e: e.start_time)
+        return combined
