@@ -240,6 +240,174 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": f"Failed to get interests: {str(e)}"}), 500
     
+    # ===== Social Connection functions ===== #
+    @app.route('/api/social/follow', methods=['POST'])
+    @require_auth
+    def follow_user(firebase_uid):
+        """Follow another user"""
+        try:
+            data = request.json or {}
+            target_username = data.get('username')
+            target_uid = data.get('firebase_uid')
+            
+            # Must provide either username or firebase_uid
+            if not target_username and not target_uid:
+                return jsonify({"error": "Either username or firebase_uid is required"}), 400
+            
+            # If both are provided, cross-validate
+            if target_username and target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                if target_user.firebase_uid != target_uid:
+                    return jsonify({"error": "Provided username and firebase_uid do not match"}), 400
+                # Use the firebase_uid from the username to ensure consistency
+                target_uid = target_user.firebase_uid
+            # If only username is provided
+            elif target_username and not target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                target_uid = target_user.firebase_uid
+            
+            # Follow the user
+            success = User.follow_user(firebase_uid, target_uid)
+            
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "User followed successfully"
+                })
+            else:
+                return jsonify({"error": "Already following this user"}), 409
+                
+        except ValueError as ve:
+            return jsonify({"error": str(ve)}), 400
+        except Exception as e:
+            return jsonify({"error": f"Failed to follow user: {str(e)}"}), 500
+    
+    @app.route('/api/social/unfollow', methods=['POST'])
+    @require_auth
+    def unfollow_user(firebase_uid):
+        """Unfollow a user"""
+        try:
+            data = request.json or {}
+            target_username = data.get('username')
+            target_uid = data.get('firebase_uid')
+            
+            # Must provide either username or firebase_uid
+            if not target_username and not target_uid:
+                return jsonify({"error": "Either username or firebase_uid is required"}), 400
+            
+            # If both are provided, ensure they refer to the same user
+            if target_username and target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                if target_user.firebase_uid != target_uid:
+                    return jsonify({"error": "Provided username and firebase_uid do not match"}), 400
+                # Use the firebase_uid from the username to ensure consistency
+                target_uid = target_user.firebase_uid
+            # If only username is provided, get the firebase_uid
+            elif target_username and not target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                target_uid = target_user.firebase_uid
+            
+            # Unfollow the user
+            success = User.unfollow_user(firebase_uid, target_uid)
+            
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "User unfollowed successfully"
+                })
+            else:
+                return jsonify({"error": "Not following this user"}), 404
+                
+        except Exception as e:
+            return jsonify({"error": f"Failed to unfollow user: {str(e)}"}), 500
+    
+    @app.route('/api/social/following', methods=['GET'])
+    @require_auth
+    def get_following(firebase_uid):
+        """Get list of users that the current user is following"""
+        try:
+            following = User.get_following(firebase_uid)
+            return jsonify({
+                "success": True,
+                "following": following,
+                "count": len(following)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get following list: {str(e)}"}), 500
+    
+    @app.route('/api/social/followers', methods=['GET'])
+    @require_auth
+    def get_followers(firebase_uid):
+        """Get list of users that are following the current user"""
+        try:
+            followers = User.get_followers(firebase_uid)
+            return jsonify({
+                "success": True,
+                "followers": followers,
+                "count": len(followers)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get followers list: {str(e)}"}), 500
+    
+    @app.route('/api/social/following/<target_uid>', methods=['GET'])
+    @require_auth
+    def check_following_status(firebase_uid, target_uid):
+        """Check if current user is following the target user"""
+        try:
+            is_following = User.is_following(firebase_uid, target_uid)
+            return jsonify({
+                "success": True,
+                "is_following": is_following
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to check following status: {str(e)}"}), 500
+    
+    @app.route('/api/social/user/<username>/following', methods=['GET'])
+    def get_user_following_by_username(username):
+        """Get list of users that a specific user is following (public endpoint)"""
+        try:
+            # Get user by username
+            user = User.get_user_by_username(username)
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+            
+            following = User.get_following(user.firebase_uid)
+            return jsonify({
+                "success": True,
+                "username": username,
+                "following": following,
+                "count": len(following)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get following list: {str(e)}"}), 500
+    
+    @app.route('/api/social/user/<username>/followers', methods=['GET'])
+    def get_user_followers_by_username(username):
+        """Get list of users that are following a specific user (public endpoint)"""
+        try:
+            # Get user by username
+            user = User.get_user_by_username(username)
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+            
+            followers = User.get_followers(user.firebase_uid)
+            return jsonify({
+                "success": True,
+                "username": username,
+                "followers": followers,
+                "count": len(followers)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get followers list: {str(e)}"}), 500
+    
     # ===== Event functions ===== #
     @app.route('/events', methods=['GET'])
     def get_events():
