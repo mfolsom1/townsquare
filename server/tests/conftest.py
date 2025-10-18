@@ -36,7 +36,7 @@ def mock_db_connection():
         # Configure mock cursor for database initialization
         mock_cursor.fetchone.return_value = [1]  # Table exists
         
-        yield mock_connect
+        yield (mock_connect, mock_conn, mock_cursor)
 
 @pytest.fixture
 def mock_firebase():
