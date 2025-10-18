@@ -254,8 +254,17 @@ def register_routes(app):
             if not target_username and not target_uid:
                 return jsonify({"error": "Either username or firebase_uid is required"}), 400
             
-            # If username provided, get the firebase_uid
-            if target_username and not target_uid:
+            # If both are provided, cross-validate
+            if target_username and target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                if target_user.firebase_uid != target_uid:
+                    return jsonify({"error": "Provided username and firebase_uid do not match"}), 400
+                # Use the firebase_uid from the username to ensure consistency
+                target_uid = target_user.firebase_uid
+            # If only username is provided
+            elif target_username and not target_uid:
                 target_user = User.get_user_by_username(target_username)
                 if not target_user:
                     return jsonify({"error": "User not found"}), 404
