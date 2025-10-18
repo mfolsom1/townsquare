@@ -67,19 +67,11 @@ def sample_user_data():
 @pytest.fixture
 def client(mock_config, mock_db_connection):
     """Flask test client fixture"""
-    with patch('app.database.pyodbc.connect') as mock_db:
-        # Set up the mock for database initialization
-        mock_conn = Mock()
-        mock_cursor = Mock()
-        mock_db.return_value = mock_conn
-        mock_conn.cursor.return_value = mock_cursor
-        mock_cursor.fetchone.return_value = [1]  # Table exists
-        
-        from app import create_app
-        app = create_app()
-        app.config['TESTING'] = True
-        with app.test_client() as client:
-            yield client
+    from app import create_app
+    app = create_app()
+    app.config['TESTING'] = True
+    with app.test_client() as client:
+        yield client
 
 @pytest.fixture
 def mock_require_auth():
