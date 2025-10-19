@@ -38,7 +38,7 @@ export default function NavBar() {
           </button>
 
           {/* avatar links to account profile */}
-          <Link to="/account" className="ts-avatar" title={user?.displayName || user?.email || "Account"}>
+          <Link to="/profile" className="ts-avatar" aria-label="Open profile" title={user?.displayName || user?.email || "Account"}>
             {initials}
           </Link>
 

@@ -16,8 +16,13 @@ def register_routes(app):
     def verify_firebase_token():
         """Verify Firebase ID token and create/get user in Azure SQL"""
         try:
-            # Get the ID token from the request
-            id_token = request.json.get('idToken')
+            # Get the ID token and additional user data from the request
+            request_data = request.json or {}
+            id_token = request_data.get('idToken')
+            user_data = request_data.get('userData', {})
+            
+            print(f"Backend received user_data: {user_data}")  # Debug log
+            
             if not id_token:
                 return jsonify({"error": "No ID token provided"}), 400
             
@@ -25,12 +30,12 @@ def register_routes(app):
             decoded_token = auth.verify_id_token(id_token)
             firebase_uid = decoded_token['uid']
             email = decoded_token.get('email')
-            username = decoded_token.get('name') or email.split('@')[0]  # Use email prefix as fallback
             
             # Check if user exists in our database
             existing_user = User.get_user_by_firebase_uid(firebase_uid)
             
             if existing_user:
+                print(f"User already exists: {existing_user.username}")  # Debug log
                 # User exists, return user data
                 return jsonify({
                     "success": True,
@@ -38,10 +43,29 @@ def register_routes(app):
                 })
             else:
                 # User doesn't exist, create new user
+                # For new user creation, username is mandatory
+                username = user_data.get('username')
+                if not username:
+                    return jsonify({"error": "Username is required for account creation"}), 400
+                
+                print(f"Creating new user with username: {username}")  # Debug log
+                
+                # Validate username format
+                username = username.strip()
+                if len(username) < 3 or len(username) > 20:
+                    return jsonify({"error": "Username must be between 3 and 20 characters"}), 400
+                
+                if not username.replace('_', '').replace('-', '').isalnum():
+                    return jsonify({"error": "Username can only contain letters, numbers, underscores, and hyphens"}), 400
                 try:
-                    # Extract additional info from Firebase token if available
-                    first_name = decoded_token.get('given_name')
-                    last_name = decoded_token.get('family_name')
+                    # Extract name info from user_data or Firebase token
+                    full_name = user_data.get('name') or decoded_token.get('name') or ''
+                    name_parts = full_name.split(' ', 1) if full_name else ['', '']
+                    
+                    first_name = (decoded_token.get('given_name') or 
+                                 name_parts[0] if name_parts[0] else None)
+                    last_name = (decoded_token.get('family_name') or 
+                                name_parts[1] if len(name_parts) > 1 and name_parts[1] else None)
                     
                     new_user = User.create_user(
                         firebase_uid=firebase_uid, 
@@ -87,19 +111,35 @@ def register_routes(app):
     def update_user_profile(firebase_uid):
         """Update user profile (requires Firebase token in Authorization header)"""
         try:
+            # Explicit check for missing or invalid firebase_uid
+            if not firebase_uid:
+                return jsonify({"error": "You must be logged in to update your profile."}), 401
+
             update_data = request.json or {}
-            allowed_fields = ['username', 'first_name', 'last_name', 'location', 'bio']
-            
+            allowed_fields = ['username', 'first_name', 'last_name', 'location', 'bio', 'interests']
+
             # Filter and validate data
             filtered_data = {k: v for k, v in update_data.items() 
                            if k in allowed_fields and v is not None}
-            
+
+            # Special validation for interests
+            if 'interests' in filtered_data:
+                interests = filtered_data['interests']
+                if not isinstance(interests, list):
+                    return jsonify({"error": "Interests must be provided as a list"}), 400
+                # Validate each interest is a string and not empty
+                for interest in interests:
+                    if not isinstance(interest, str) or not interest.strip():
+                        return jsonify({"error": "Each interest must be a non-empty string"}), 400
+                # Clean up interest names (strip whitespace)
+                filtered_data['interests'] = [interest.strip() for interest in interests]
+
             if not filtered_data:
                 return jsonify({"error": "No valid fields to update"}), 400
-            
+
             # Update user in database
             success = User.update_user(firebase_uid, **filtered_data)
-            
+
             if success:
                 # Return updated user data
                 user = User.get_user_by_firebase_uid(firebase_uid)
@@ -110,11 +150,263 @@ def register_routes(app):
                 })
             else:
                 return jsonify({"error": "No fields were updated"}), 400
-            
-        except pyodbc.IntegrityError:
-            return jsonify({"error": "Username already exists"}), 409
+
+        except pyodbc.IntegrityError as e:
+            # Return a clearer, generic integrity error for profile updates.
+            # The previous message always said 'Username already exists' which is
+            # misleading when updating interests or other fields. Include the
+            # original error text in the response for easier debugging (can be
+            # removed or reduced in production).
+            return jsonify({"error": "Database integrity error", "details": str(e)}), 409
         except Exception as e:
             return jsonify({"error": f"Failed to update user profile: {str(e)}"}), 500
+    
+    @app.route('/api/user/interests', methods=['GET'])
+    @require_auth
+    def get_user_interests(firebase_uid):
+        """Get user's interests"""
+        try:
+            interests = User.get_user_interests_by_uid(firebase_uid)
+            return jsonify({
+                "success": True,
+                "interests": interests
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get user interests: {str(e)}"}), 500
+    
+    @app.route('/api/user/interests', methods=['POST'])
+    @require_auth
+    def add_user_interest(firebase_uid):
+        """Add an interest to user's profile"""
+        try:
+            data = request.json or {}
+            interest_name = data.get('interest')
+            
+            if not interest_name or not isinstance(interest_name, str) or not interest_name.strip():
+                return jsonify({"error": "Interest name is required and must be a non-empty string"}), 400
+            
+            interest_name = interest_name.strip()
+            success = User.add_user_interest(firebase_uid, interest_name)
+            
+            if success:
+                interests = User.get_user_interests_by_uid(firebase_uid)
+                return jsonify({
+                    "success": True,
+                    "message": "Interest added successfully",
+                    "interests": interests
+                })
+            else:
+                return jsonify({"error": "Failed to add interest"}), 400
+            
+        except Exception as e:
+            return jsonify({"error": f"Failed to add interest: {str(e)}"}), 500
+    
+    @app.route('/api/user/interests', methods=['DELETE'])
+    @require_auth
+    def remove_user_interest(firebase_uid):
+        """Remove an interest from user's profile"""
+        try:
+            data = request.json or {}
+            interest_name = data.get('interest')
+            
+            if not interest_name or not isinstance(interest_name, str) or not interest_name.strip():
+                return jsonify({"error": "Interest name is required and must be a non-empty string"}), 400
+            
+            interest_name = interest_name.strip()
+            success = User.remove_user_interest(firebase_uid, interest_name)
+            
+            if success:
+                interests = User.get_user_interests_by_uid(firebase_uid)
+                return jsonify({
+                    "success": True,
+                    "message": "Interest removed successfully",
+                    "interests": interests
+                })
+            else:
+                return jsonify({"error": "Interest not found or already removed"}), 404
+            
+        except Exception as e:
+            return jsonify({"error": f"Failed to remove interest: {str(e)}"}), 500
+    
+    @app.route('/api/interests', methods=['GET'])
+    def get_all_interests():
+        """Get all available interests in the system"""
+        try:
+            interests = User.get_all_interests()
+            return jsonify({
+                "success": True,
+                "interests": interests
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get interests: {str(e)}"}), 500
+    
+    # ===== Social Connection functions ===== #
+    @app.route('/api/social/follow', methods=['POST'])
+    @require_auth
+    def follow_user(firebase_uid):
+        """Follow another user"""
+        try:
+            data = request.json or {}
+            target_username = data.get('username')
+            target_uid = data.get('firebase_uid')
+            
+            # Must provide either username or firebase_uid
+            if not target_username and not target_uid:
+                return jsonify({"error": "Either username or firebase_uid is required"}), 400
+            
+            # If both are provided, cross-validate
+            if target_username and target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                if target_user.firebase_uid != target_uid:
+                    return jsonify({"error": "Provided username and firebase_uid do not match"}), 400
+                # Use the firebase_uid from the username to ensure consistency
+                target_uid = target_user.firebase_uid
+            # If only username is provided
+            elif target_username and not target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                target_uid = target_user.firebase_uid
+            
+            # Follow the user
+            success = User.follow_user(firebase_uid, target_uid)
+            
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "User followed successfully"
+                })
+            else:
+                return jsonify({"error": "Already following this user"}), 409
+                
+        except ValueError as ve:
+            return jsonify({"error": str(ve)}), 400
+        except Exception as e:
+            return jsonify({"error": f"Failed to follow user: {str(e)}"}), 500
+    
+    @app.route('/api/social/unfollow', methods=['POST'])
+    @require_auth
+    def unfollow_user(firebase_uid):
+        """Unfollow a user"""
+        try:
+            data = request.json or {}
+            target_username = data.get('username')
+            target_uid = data.get('firebase_uid')
+            
+            # Must provide either username or firebase_uid
+            if not target_username and not target_uid:
+                return jsonify({"error": "Either username or firebase_uid is required"}), 400
+            
+            # If both are provided, ensure they refer to the same user
+            if target_username and target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                if target_user.firebase_uid != target_uid:
+                    return jsonify({"error": "Provided username and firebase_uid do not match"}), 400
+                # Use the firebase_uid from the username to ensure consistency
+                target_uid = target_user.firebase_uid
+            # If only username is provided, get the firebase_uid
+            elif target_username and not target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                target_uid = target_user.firebase_uid
+            
+            # Unfollow the user
+            success = User.unfollow_user(firebase_uid, target_uid)
+            
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "User unfollowed successfully"
+                })
+            else:
+                return jsonify({"error": "Not following this user"}), 404
+                
+        except Exception as e:
+            return jsonify({"error": f"Failed to unfollow user: {str(e)}"}), 500
+    
+    @app.route('/api/social/following', methods=['GET'])
+    @require_auth
+    def get_following(firebase_uid):
+        """Get list of users that the current user is following"""
+        try:
+            following = User.get_following(firebase_uid)
+            return jsonify({
+                "success": True,
+                "following": following,
+                "count": len(following)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get following list: {str(e)}"}), 500
+    
+    @app.route('/api/social/followers', methods=['GET'])
+    @require_auth
+    def get_followers(firebase_uid):
+        """Get list of users that are following the current user"""
+        try:
+            followers = User.get_followers(firebase_uid)
+            return jsonify({
+                "success": True,
+                "followers": followers,
+                "count": len(followers)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get followers list: {str(e)}"}), 500
+    
+    @app.route('/api/social/following/<target_uid>', methods=['GET'])
+    @require_auth
+    def check_following_status(firebase_uid, target_uid):
+        """Check if current user is following the target user"""
+        try:
+            is_following = User.is_following(firebase_uid, target_uid)
+            return jsonify({
+                "success": True,
+                "is_following": is_following
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to check following status: {str(e)}"}), 500
+    
+    @app.route('/api/social/user/<username>/following', methods=['GET'])
+    def get_user_following_by_username(username):
+        """Get list of users that a specific user is following (public endpoint)"""
+        try:
+            # Get user by username
+            user = User.get_user_by_username(username)
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+            
+            following = User.get_following(user.firebase_uid)
+            return jsonify({
+                "success": True,
+                "username": username,
+                "following": following,
+                "count": len(following)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get following list: {str(e)}"}), 500
+    
+    @app.route('/api/social/user/<username>/followers', methods=['GET'])
+    def get_user_followers_by_username(username):
+        """Get list of users that are following a specific user (public endpoint)"""
+        try:
+            # Get user by username
+            user = User.get_user_by_username(username)
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+            
+            followers = User.get_followers(user.firebase_uid)
+            return jsonify({
+                "success": True,
+                "username": username,
+                "followers": followers,
+                "count": len(followers)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get followers list: {str(e)}"}), 500
     
     # ===== Event functions ===== #
     @app.route('/events', methods=['GET'])

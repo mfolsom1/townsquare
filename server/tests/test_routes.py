@@ -64,7 +64,10 @@ def test_verify_firebase_token_new_user(mock_create_user, mock_get_user, mock_ve
     }
     mock_create_user.return_value = mock_new_user
 
-    response = client.post('/api/auth/verify', json={'idToken': 'valid-token'})
+    response = client.post('/api/auth/verify', json={
+        'idToken': 'valid-token',
+        'userData': {'username': 'newuser'}
+    })
 
     assert response.status_code == 200
     assert response.json['message'] == "User created successfully"

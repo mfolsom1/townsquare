@@ -31,12 +31,37 @@ export default function Signup() {
     return minLength && hasUpper && hasNumber && hasSpecial; 
     }, [form.password]);  
 
+    // username validation function
+    const isValidUsername = useMemo(() => {
+        const username = (form.username ?? "").trim();
+        const minLength = username.length >= 3;
+        const maxLength = username.length <= 20;
+        const validChars = /^[a-zA-Z0-9_-]+$/.test(username); // Only letters, numbers, underscores, and hyphens
+        return minLength && maxLength && validChars;
+    }, [form.username]);  
+
 
     // handle form submission
     const onSubmit = async (e) => {
         e.preventDefault(); // stop page refresh
         setErr("");         // clear previous error
 
+        // validate required fields
+        if (!form.username.trim()) {
+            setErr("Username is required.");
+            return;
+        }
+        
+        if (!isValidUsername) {
+            setErr("Username must be 3-20 characters and contain only letters, numbers, underscores, and hyphens.");
+            return;
+        }
+        
+        if (!form.name.trim()) {
+            setErr("Name is required.");
+            return;
+        }
+        
         // check password strength
         if (!isStrongPassword) {
             setErr("Password must be at least 8 characters and include an uppercase letter, a number, and a special character.");
@@ -77,12 +102,33 @@ export default function Signup() {
             {/*username field */}
             <label>
                 Username
-                <input
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                placeholder="Pick a unique username"
-                required
-            />
+                <div className="input-wrapper">
+                    <input
+                        value={form.username}
+                        onChange={(e) => setForm({ ...form, username: e.target.value })}
+                        placeholder="Pick a unique username"
+                        required
+                        className={
+                            form.username
+                            ? isValidUsername
+                                ? "valid-input"
+                                : "invalid-input"
+                            : ""
+                        }
+                        aria-invalid={form.username && !isValidUsername ? "true" : "false"}
+                    />
+                    {form.username &&
+                    (isValidUsername ? (
+                        <span className="icon valid">✔</span>
+                    ) : (
+                        <span className="icon invalid">!</span>
+                    ))}
+                </div>
+                {form.username && !isValidUsername && (
+                    <small className="auth-hint">
+                        Username must be 3-20 characters and contain only letters, numbers, underscores, and hyphens.
+                    </small>
+                )}
             </label>
 
             {/* email field */}
@@ -129,8 +175,12 @@ export default function Signup() {
             )}                                                    
             </label>
 
-            {/* disable submit until strong */}
-            <button className="auth-btn primary" type="submit" disabled={!isStrongPassword}>
+            {/* disable submit until all required fields are valid */}
+            <button 
+                className="auth-btn primary" 
+                type="submit" 
+                disabled={!isStrongPassword || !isValidUsername || !form.name.trim()}
+            >
                 Sign up
             </button>
 
