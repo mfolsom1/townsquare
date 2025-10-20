@@ -201,6 +201,38 @@ export async function deleteEvent(idToken, eventId) {
     return apiRequest(`/events/${eventId}`, { method: "DELETE" }, idToken);
 }
 
+//===========================
+// ===== Friend Events =====
+//===========================
+
+/**
+ * Fetches events that the user's friends are attending or interested in.
+ * @param {string} idToken - The Firebase ID token for authentication.
+ * @returns {Promise<Array<object>>} A list of friend-RSVP'd events.
+ */
+export async function getFriendEvents(idToken) {
+    return apiRequest("/api/friends/events", { method: "GET" }, idToken);
+}
+
+/**
+ * Fetches events that were created by the user's friends.
+ * @param {string} idToken - The Firebase ID token for authentication.
+ * @returns {Promise<Array<object>>} A list of events created by friends.
+ */
+export async function getFriendCreatedEvents(idToken) {
+    return apiRequest("/api/friends/created", { method: "GET" }, idToken);
+}
+
+/**
+ * Fetches the full friend feed (both attended/interested and created events).
+ * @param {string} idToken - The Firebase ID token for authentication.
+ * @returns {Promise<Array<object>>} A combined list of friend feed events.
+ */
+export async function getFriendFeed(idToken) {
+    return apiRequest("/api/friends/feed", { method: "GET" }, idToken);
+}
+
+
 //===============================
 // ===== Recommendations =====
 //===============================
