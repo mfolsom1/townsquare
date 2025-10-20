@@ -1,0 +1,186 @@
+:root{
+  --page:#ffffff;
+  --stroke:#e7e8ee;
+  --text:#1f2937;
+  --muted:#6b7280;
+  --chip:#f4f5f7;
+  --brand:#6E77FF;
+  --brand-600:#5b63e6;
+  --brand-700:#4b53d1;
+
+  --r:16px;
+  --lift:0 2px 10px rgba(0,0,0,.04);
+  --lift-2:0 6px 18px rgba(0,0,0,.07);
+  --focus:#a7afff;
+}
+
+/* Reduce motion-friendly transitions */
+*,
+*::before,
+*::after { transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after { transition: none !important; }
+}
+
+/* PAGE */
+.pf{
+  color:var(--text);
+  background:var(--page);
+  min-height:100dvh;
+  padding:28px 24px 44px;
+}
+.pf-wrap{
+  max-width:1200px;
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:360px 1fr;
+  gap:32px;
+}
+
+/* LEFT COLUMN */
+.pf-left{ display:flex; flex-direction:column; gap:22px; }
+
+/* Cards (outline + soft pop) */
+.pf-hero,
+.pf-card,
+.pf-section,
+.pf-list{
+  background:var(--page);
+  border:1px solid var(--stroke);
+  border-radius:var(--r);
+  box-shadow:var(--lift);
+  padding:20px;
+}
+
+/* Profile hero specifics */
+.pf-hero{ padding:24px; }
+.pf-user{ display:flex; flex-direction:column; align-items:flex-start; gap:28px; }
+.pf-avatar{
+  width:200px; height:200px; border-radius:999px;
+  background:#e5e7eb; display:grid; place-items:center;
+  font-weight:700; font-size:60px; color:#9ca3af;
+}
+.pf-name{ margin:0; font-size:26px; font-weight:800; text-align:left; }
+.pf-handle{ color:var(--muted) !important; font-weight:500; font-size:19px; }
+.pf-meta{ display:grid; gap:10px; margin-top:4px; }
+.pf-sub{ margin-top:6px; color:var(--muted); font-size:16px; line-height:1.6; display:flex; align-items:center; gap:8px; }
+
+/* Location muted (text + icon) */
+.pf-location{ color:var(--muted) !important; display:inline-flex; align-items:center; gap:8px; }
+.pf-location .material-symbols-outlined{
+  font-size:20px; line-height:1; color:var(--muted) !important;
+  font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+}
+.pf-location-after .material-symbols-outlined{ margin-left:2px; }
+
+/* Friends + Edit row */
+.pf-row{ display:flex; align-items:center; width:100%; margin-top:12px; }
+.pf-friends{ font-size:18px; }
+.pf-row .pf-btn{ margin-left:auto; }
+
+/* Buttons (shared) */
+.pf-btn{
+  border:1px solid var(--stroke);
+  background:#f3f4ff;
+  color:var(--brand);
+  padding:10px 14px;
+  border-radius:12px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  text-decoration:none;
+  display:inline-flex; align-items:center; gap:8px;
+}
+.pf-btn:hover{ background:#e9ebff; }
+.pf-btn:active{ transform: translateY(1px); }
+.pf-btn:focus-visible{
+  outline:2px solid var(--focus);
+  outline-offset:2px;
+}
+
+/* Interests */
+.pf-title{ font-weight:800; font-size:15px; margin-bottom:12px; }
+.pf-pills{ display:flex; flex-wrap:wrap; gap:10px; }
+.pf-pill{
+  background:var(--chip);
+  border:1px solid var(--stroke);
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:13px;
+  color:#374151;
+}
+.pf-empty{ color:var(--muted); font-size:14px; }
+
+/* RIGHT COLUMN */
+.pf-right{ display:flex; flex-direction:column; gap:22px; }
+
+/* Section headers a touch larger */
+.pf-section .pf-title,
+.pf-list .pf-title{ font-size:17px; font-weight:800; margin-bottom:14px; }
+
+/* Events */
+.pf-grid{ display:grid; gap:16px; grid-template-columns:repeat(3, minmax(0, 1fr)); }
+.pf-event{
+  background:var(--page);
+  border:1px solid var(--stroke);
+  border-radius:14px;
+  overflow:hidden;
+  display:flex; flex-direction:column;
+  box-shadow:var(--lift);
+}
+.pf-event:hover{ box-shadow:var(--lift-2); transform: translateY(-1px); }
+.pf-thumb{ width:100%; height:150px; background:#e5e7eb; }
+.pf-event-body{ padding:12px 12px 14px; display:flex; flex-direction:column; gap:6px; }
+.pf-event-title{ font-weight:800; font-size:15px; line-height:1.35; }
+.pf-event-sub{ color:var(--muted); font-size:13.5px; margin-top:2px; }
+.pf-event-actions{ display:flex; justify-content:flex-end; padding:0 12px 12px; }
+
+/* Primary CTA (used for both "Create one" and "Discover events") */
+.pf-linkbtn,
+a.pf-linkbtn{
+  background:var(--brand);
+  color:#fff;
+  border:none;
+  padding:8px 12px;
+  border-radius:10px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  text-decoration:none;
+  display:inline-flex; align-items:center; gap:8px;
+}
+.pf-linkbtn:hover,
+a.pf-linkbtn:hover{ background:var(--brand-600); }
+.pf-linkbtn:active,
+a.pf-linkbtn:active{ transform: translateY(1px); }
+.pf-linkbtn:focus-visible,
+a.pf-linkbtn:focus-visible{
+  outline:2px solid var(--focus);
+  outline-offset:2px;
+}
+
+/* Make anchor CTA inside empty state match exactly */
+.pf-empty a{ @apply pf-linkbtn; } 
+
+/* RESPONSIVE */
+@media (max-width:1180px){
+  .pf-wrap{ grid-template-columns:320px 1fr; gap:28px; }
+  .pf-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width:860px){
+  .pf-wrap{ grid-template-columns:1fr; }
+  .pf-grid{ grid-template-columns:1fr; }
+}
+.pf-bio { color: var(--text) !important; }
+.pf-user-block { width: 100%; }
+
+/* Right alignment for the Edit Profile button */
+.pf-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pf-row .pf-btn {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
