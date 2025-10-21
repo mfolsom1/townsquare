@@ -412,30 +412,61 @@ def register_routes(app):
     @app.route('/events', methods=['GET'])
     def get_events():
         try:
+            # parse pagination and sort params
+            try:
+                page = int(request.args.get('page', 1))
+            except ValueError:
+                page = 1
+            try:
+                per_page = int(request.args.get('per_page', 20))
+            except ValueError:
+                per_page = 20
+
+            sort_by = request.args.get('sort_by', 'StartTime')
+            sort_dir = request.args.get('sort_dir', 'ASC')
+
             if request.args:
                 q = request.args.get('q')
                 category_id = request.args.get('category_id')
                 location = request.args.get('location')
+                start_date = request.args.get('start_date')  # ISO expected
+                end_date = request.args.get('end_date')
+                # tags can be provided as repeated params ?tags=Music&tags=Outdoor or comma-separated
+                tags = request.args.getlist('tags') or request.args.get('tags')
+                if isinstance(tags, str) and ',' in tags:
+                    tags = [t.strip() for t in tags.split(',') if t.strip()]
 
                 if category_id:
                     try:
                         category_id = int(category_id)
                     except ValueError:
-                        return jsonify({"error": "category_id not an integer"})
-                
+                        return jsonify({"error": "category_id not an integer"}), 400
+
                 filters = {}
                 if q: filters['q'] = q
                 if category_id is not None: filters['category_id'] = category_id
                 if location: filters['location'] = location
+                if start_date: filters['start_date'] = start_date
+                if end_date: filters['end_date'] = end_date
+                if tags: filters['tags'] = tags
 
-                events = Event.get_events(filters=filters)
+                result = Event.get_events(filters=filters, page=page, per_page=per_page, sort_by=sort_by, sort_dir=sort_dir)
+                events = result['events']
+                total = result['total']
             else:
-                events = Event.get_all_events()
+                result = Event.get_events(page=page, per_page=per_page, sort_by=sort_by, sort_dir=sort_dir)
+                events = result['events']
+                total = result['total']
 
-            # Returns a 200 OK with an empty list if no events are found, which is more conventional.
             return jsonify({
                 "success": True,
-                "events": [event.to_dict() for event in events]
+                "events": [event.to_dict() for event in events],
+                "pagination": {
+                    "page": page,
+                    "per_page": per_page,
+                    "total": total,
+                    "pages": (total + per_page - 1) // per_page if per_page else 0
+                }
             })
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -563,4 +594,3 @@ def register_routes(app):
     @app.errorhandler(404)
     def not_found(error):
         return jsonify({"error": "Not found"}), 404
-    

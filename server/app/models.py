@@ -477,31 +477,74 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_events(filters=None):
+    def get_events(filters=None, page: int = 1, per_page: int = 20, sort_by: str = "StartTime", sort_dir: str = "ASC"):
         filters = filters or {}
         clauses = []
         params = []
 
         q = filters.get('q')
         if q:
-            clauses.append("(Title LIKE ?)")
-            params += [f"%{q}%"]
-        
+            clauses.append("(Title LIKE ? OR Description LIKE ? OR Location LIKE ?)")
+            params += [f"%{q}%", f"%{q}%", f"%{q}%"]
+
         if filters.get('category_id') is not None:
             clauses.append("CategoryID = ?")
             params.append(int(filters['category_id']))
-        
+
         if filters.get('location'):
             clauses.append("Location LIKE ?")
             params.append(f"%{filters['location']}%")
-        
+
+        # Date range filtering (expect ISO strings or datetime objects)
+        if filters.get('start_date'):
+            clauses.append("StartTime >= ?")
+            params.append(filters['start_date'])
+        if filters.get('end_date'):
+            clauses.append("StartTime <= ?")
+            params.append(filters['end_date'])
+
+        # Tags filter: filters['tags'] can be list of tag names
+        tags = filters.get('tags')
+        if tags:
+            # ensure tags is a list
+            if isinstance(tags, str):
+                tags = [t.strip() for t in tags.split(',') if t.strip()]
+            if tags:
+                placeholders = ','.join('?' for _ in tags)
+                clauses.append(
+                    f"EventID IN (SELECT eta.EventID FROM EventTagAssignments eta JOIN EventTags t ON eta.TagID = t.TagID WHERE t.Name IN ({placeholders}))"
+                )
+                params.extend(tags)
+
         where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+        # Validate sort direction and column
+        sort_dir = "ASC" if str(sort_dir).upper() != "DESC" else "DESC"
+        # whitelist sort columns
+        allowed_sort_cols = {"StartTime", "EndTime", "CreatedAt", "Title"}
+        sort_by = sort_by if sort_by in allowed_sort_cols else "StartTime"
+
+        offset = max(0, (int(page) - 1) * int(per_page))
+        per_page = max(1, int(per_page))
 
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
-            # Select matching event rows and map to Event objects
-            cursor.execute(f"SELECT * FROM Events {where_sql}", params)
+            # total count
+            count_query = f"SELECT COUNT(*) FROM Events {where_sql}"
+            cursor.execute(count_query, params)
+            total = cursor.fetchone()[0] if cursor.rowcount is not None else 0
+
+            # fetch page
+            query = f"""
+                SELECT *
+                FROM Events
+                {where_sql}
+                ORDER BY {sort_by} {sort_dir}
+                OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+            """
+            exec_params = params + [offset, per_page]
+            cursor.execute(query, exec_params)
             rows = cursor.fetchall()
 
             events = [
@@ -521,7 +564,7 @@ class Event:
                 )
                 for row in rows
             ]
-            return events
+            return {"events": events, "total": int(total)}
         finally:
             conn.close()
     
@@ -636,5 +679,5 @@ class Event:
             raise e
         finally:
             conn.close()
-            
+
 
