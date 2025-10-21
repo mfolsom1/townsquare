@@ -1,10 +1,12 @@
 # train.py: Implementation of model training
 import numpy as np
 import logging
-from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
+import json
+import time
 import pickle
 from pathlib import Path
+from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime, timedelta
 
 from .utils import (
     DatabaseConnector,
@@ -79,6 +81,16 @@ class ModelTrainer:
 
             # Save event metadata for quick access
             self._save_event_metadata(valid_events)
+
+            # Cache marker
+            version_info = {
+                'version': int(time.time()),
+                'event_count': len(event_ids),
+                'created_at': datetime.now().isoformat()
+            }
+            version_path = self.storage_path / "cache_version.json"
+            with open(version_path, 'w') as f:
+                json.dump(version_info, f)
 
             logger.info(
                 f"Successfully generated embeddings for {len(event_ids)} events"

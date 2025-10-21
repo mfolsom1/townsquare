@@ -1,6 +1,9 @@
 # recommend.py: Load model and generate recommendations
 import numpy as np
 import logging
+import json
+import pickle
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from .utils import (DatabaseConnector, VectorStore, EmbeddingGenerator,
@@ -8,11 +11,13 @@ from .utils import (DatabaseConnector, VectorStore, EmbeddingGenerator,
 
 logger = logging.getLogger(__name__)
 
+# TODO: event cache refresh
+
 
 class RecommendationEngine:
     """Primary rec engine class"""
 
-    def __init__(self):
+    def __init__(self, load_vectors_on_init: bool = True):
         # Init helpers
         self.db_connector = DatabaseConnector()
         self.vector_store = VectorStore()
@@ -23,11 +28,43 @@ class RecommendationEngine:
         self.event_ids = None
 
         # Load vectors on initialization
-        self.load_vectors()
+        self._vectors_loaded = False
+        if load_vectors_on_init:
+            self.load_vectors()
+
+    def are_vectors_loaded(self) -> bool:
+        return self._vectors_loaded and self.event_index is not None
+
+    def _parse_event_time(self, event_time: Any) -> Optional[datetime]:
+        """Centralized event time parsing"""
+        if event_time is None:
+            return None
+        if isinstance(event_time, datetime):
+            return event_time
+        try:
+            if isinstance(event_time, str):
+                # Handle ISO format with timezone
+                return datetime.fromisoformat(event_time.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            logger.warning(f"Could not parse event time: {event_time}")
+        return None
 
     def load_vectors(self):
         # Load pre-computed vectors into memory
         try:
+            # Check if cache needs refresh
+            version_path = Path("model_artifacts/cache_version.json")
+            if version_path.exists():
+                with open(version_path, 'r') as f:
+                    current_version = json.load(f)
+                # Initialize _cache_version if it doesn't exist, or compare
+                if not hasattr(self, '_cache_version') or self._cache_version != current_version['version']:
+                    logger.info("Cache version changed, reloading vectors")
+                    self._cache_version = current_version['version']
+                else:
+                    logger.info("Cache is up to date, skipping reload")
+                    return
+
             self.event_index, self.event_ids = self.vector_store.load_vectors(
                 "events")
 
@@ -35,6 +72,12 @@ class RecommendationEngine:
                 logger.info(f"Loaded {len(self.event_ids)} event vectors")
             else:
                 logger.warning("No event vectors found")
+
+            self._vectors_loaded = True
+
+            # Clear event cache to force refresh
+            if hasattr(self, '_event_cache'):
+                delattr(self, '_event_cache')
 
         except Exception as e:
             logger.error(f"Error loading vectors: {e}")
@@ -82,7 +125,8 @@ class RecommendationEngine:
         # Process recent RSVPs (TODO: last 30 days(?))
         recent_cutoff = datetime.now() - timedelta(days=30)
         for rsvp in rsvps:
-            if rsvp['CreatedAt'] and rsvp['CreatedAt'] > recent_cutoff:
+            rsvp_time = self._parse_event_time(rsvp.get('CreatedAt'))
+            if rsvp_time and rsvp_time > recent_cutoff:
                 event_id = rsvp['EventID']
                 if event_id in self.event_ids:
                     event_idx = self.event_ids.index(event_id)
@@ -93,7 +137,8 @@ class RecommendationEngine:
 
         # Process recent activities (TODO: clicking, viewing for x amount of time, sharing, saving)
         for activity in activities:
-            if activity['CreatedAt'] and activity['CreatedAt'] > recent_cutoff:
+            activity_time = self._parse_event_time(activity.get('CreatedAt'))
+            if activity_time and activity_time > recent_cutoff:
                 if activity['ActivityType'] == 'viewed_event_details':
                     event_id = activity['TargetID']
                     if event_id in self.event_ids:
@@ -123,6 +168,10 @@ class RecommendationEngine:
                          filters: Optional[Dict[str, Any]] = None,
                          recommendation_strategy: str = "hybrid") -> List[Dict[str, Any]]:
         """Unified recommendation function with strategy options"""
+
+        if not self.are_vectors_loaded():
+            logger.warning("Vectors not loaded, using fallback")
+            return self.get_fallback_recommendations(top_k, filters)
 
         logger.info(
             f"Generating {recommendation_strategy} recommendations for user {user_uid}")
@@ -188,11 +237,25 @@ class RecommendationEngine:
             return self.get_fallback_recommendations(top_k, filters)
 
     def get_event_details(self, event_id: int) -> Optional[Dict[str, Any]]:
-        # Pull event details from database
-        events = self.db_connector.fetch_events()
-        for event in events:
-            if event['EventID'] == event_id:
-                return event
+        # Pull single event details from database
+        try:
+            # Try to load from ModelTrainer's metadata first
+            metadata_path = Path("model_artifacts/event_metadata.pkl")
+            if metadata_path.exists():
+                with open(metadata_path, 'rb') as f:
+                    event_metadata = pickle.load(f)
+                    if event_id in event_metadata:
+                        return event_metadata[event_id]
+            # Otherwise build separate cache
+            if not hasattr(self, '_event_cache') or not self._event_cache:
+                events = self.db_connector.fetch_events()
+                self._event_cache = {
+                    event['EventID']: event for event in events}
+                logger.info(
+                    f"Initialized event cache with {len(events)} events")
+            return self._event_cache.get(event_id)
+        except Exception as e:
+            logger.error(f"Error getting event {event_id}: {e}")
         return None
 
     def apply_filters(self, events: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -221,31 +284,17 @@ class RecommendationEngine:
     def _within_date_range(self, event: Dict[str, Any], start_date: datetime,
                            end_date: datetime) -> bool:
         # Check if event is within date range
-        event_time = event.get('StartTime')
+        event_time = self._parse_event_time(event.get('StartTime'))
         if not event_time:
             return True
-
-        if isinstance(event_time, str):
-            try:
-                event_time = datetime.fromisoformat(
-                    event_time.replace('Z', '+00:00'))
-            except:
-                return True
 
         return start_date <= event_time <= end_date
 
     def apply_recency_boost(self, event: Dict[str, Any], base_score: float) -> float:
         # Boost score for events happening soon
-        event_time = event.get('StartTime')
+        event_time = self._parse_event_time(event.get('StartTime'))
         if not event_time:
             return base_score
-
-        if isinstance(event_time, str):
-            try:
-                event_time = datetime.fromisoformat(
-                    event_time.replace('Z', '+00:00'))
-            except:
-                return base_score
 
         days_until_event = (event_time - datetime.now()).days
 
@@ -366,6 +415,13 @@ class RecommendationEngine:
         logger.info("Refreshing recommendation models")
         self.load_vectors()
 
+    def refresh_cache(self):
+        """Force refresh all caches"""
+        logger.info("Refreshing recommendation caches")
+        if hasattr(self, '_event_cache'):
+            delattr(self, '_event_cache')
+        self.load_vectors()  # TODO: might be problematic
+
 
 class RecommendationAPI:
     """API layer for recommendations"""
@@ -376,6 +432,17 @@ class RecommendationAPI:
     def get_recommendations(self, user_uid: str, top_k: int = 10,
                             filters: Optional[Dict[str, Any]] = None,
                             recommendation_strategy: str = "hybrid") -> Dict[str, Any]:
+        # Validate input
+        if not user_uid or not isinstance(user_uid, str):
+            return {"error": "Invalid user_uid", "recommendations": []}
+
+        if top_k <= 0 or top_k > 100:  # Limit recs to 10
+            top_k = 10
+
+        valid_strategies = ["hybrid", "friends_only", "friends_boosted"]
+        if recommendation_strategy not in valid_strategies:
+            recommendation_strategy = "hybrid"
+
         recommendations = self.engine.recommend_events(
             user_uid, top_k, filters, recommendation_strategy
         )

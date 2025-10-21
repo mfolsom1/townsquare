@@ -378,31 +378,6 @@ class DatabaseConnector:
             logger.error(f"Error fetching activity for user {user_uid}: {e}")
             return []
 
-    # TODO: unused, may be useful for some other feature
-    def fetch_user_friends(self, user_uid: str,
-                           limit: int = 3) -> List[Dict[str, Any]]:
-        """Fetch user's top friends by most recent follow"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                query = """
-                    SELECT TOP (?)
-                        u.FirebaseUID,
-                        u.Username,
-                        u.FirstName,
-                        u.LastName
-                    FROM SocialConnections sc
-                    JOIN Users u ON sc.FollowingUID = u.FirebaseUID
-                    WHERE sc.FollowerUID = ?
-                    ORDER BY sc.CreatedAt DESC
-                """
-                cursor.execute(query, (limit, user_uid))
-                columns = [column[0] for column in cursor.description]
-                return [dict(zip(columns, row)) for row in cursor.fetchall()]
-        except Exception as e:
-            logger.error(f"Error fetching friends for user {user_uid}: {e}")
-            return []
-
     def fetch_friend_recommendations(self, user_uid: str) -> List[Dict[str, Any]]:
         """Fetch events that friends are attending"""
         try:
@@ -468,145 +443,145 @@ class DatabaseConnector:
         except Exception as e:
             logger.error(f"Error storing friend recommendations: {e}")
 
+    def fetch_user_friends(self, user_uid: str, limit: int = 3, include_activity: bool = False) -> List[Dict[str, Any]]:
+        """Fetch user's top friends with optional activity data"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
 
-def fetch_user_friends(self, user_uid: str, limit: int = 3, include_activity: bool = False) -> List[Dict[str, Any]]:
-    """Enhanced version: Fetch user's top friends with optional activity data"""
-    try:
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+                if include_activity:
+                    # Query with friend activity data
+                    query = """
+                        SELECT TOP (?)
+                            u.FirebaseUID,
+                            u.Username,
+                            u.FirstName,
+                            u.LastName,
+                            sc.CreatedAt as FollowedAt,
+                            (
+                                SELECT COUNT(*)
+                                FROM RSVPs r
+                                WHERE r.UserUID = u.FirebaseUID 
+                                AND r.Status IN ('Going', 'Interested')
+                                AND r.EventID IN (
+                                    SELECT EventID FROM Events WHERE StartTime > GETDATE()
+                                )
+                            ) as UpcomingEvents
+                        FROM SocialConnections sc
+                        JOIN Users u ON sc.FollowingUID = u.FirebaseUID
+                        WHERE sc.FollowerUID = ?
+                        ORDER BY sc.CreatedAt DESC
+                    """
+                else:
+                    # Fallback to simple query
+                    query = """
+                        SELECT TOP (?)
+                            u.FirebaseUID,
+                            u.Username,
+                            u.FirstName,
+                            u.LastName
+                        FROM SocialConnections sc
+                        JOIN Users u ON sc.FollowingUID = u.FirebaseUID
+                        WHERE sc.FollowerUID = ?
+                        ORDER BY sc.CreatedAt DESC
+                    """
 
-            if include_activity:
-                # Enhanced query with friend activity data
-                query = """
-                    SELECT TOP (?)
-                        u.FirebaseUID,
-                        u.Username,
-                        u.FirstName,
-                        u.LastName,
-                        sc.CreatedAt as FollowedAt,
-                        (
-                            SELECT COUNT(*)
-                            FROM RSVPs r
-                            WHERE r.UserUID = u.FirebaseUID 
-                            AND r.Status IN ('Going', 'Interested')
-                            AND r.EventID IN (
-                                SELECT EventID FROM Events WHERE StartTime > GETDATE()
-                            )
-                        ) as UpcomingEvents
-                    FROM SocialConnections sc
-                    JOIN Users u ON sc.FollowingUID = u.FirebaseUID
-                    WHERE sc.FollowerUID = ?
-                    ORDER BY sc.CreatedAt DESC
-                """
-            else:
-                # Original simple query
-                query = """
-                    SELECT TOP (?)
-                        u.FirebaseUID,
-                        u.Username,
-                        u.FirstName,
-                        u.LastName
-                    FROM SocialConnections sc
-                    JOIN Users u ON sc.FollowingUID = u.FirebaseUID
-                    WHERE sc.FollowerUID = ?
-                    ORDER BY sc.CreatedAt DESC
-                """
+                cursor.execute(query, (limit, user_uid))
+                columns = [column[0] for column in cursor.description]
+                friends = [dict(zip(columns, row))
+                           for row in cursor.fetchall()]
 
-            cursor.execute(query, (limit, user_uid))
-            columns = [column[0] for column in cursor.description]
-            friends = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                logger.info(
+                    f"Fetched {len(friends)} friends for user {user_uid}")
+                return friends
 
-            logger.info(f"Fetched {len(friends)} friends for user {user_uid}")
-            return friends
+        except Exception as e:
+            logger.error(f"Error fetching friends for user {user_uid}: {e}")
+            return []
 
-    except Exception as e:
-        logger.error(f"Error fetching friends for user {user_uid}: {e}")
-        return []
+    def fetch_friend_recommendations(self, user_uid: str, include_scoring: bool = True) -> List[Dict[str, Any]]:
+        """Fetch events that friends are attending with scoring"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
 
+                if include_scoring:
+                    # Query with friend-based scoring
+                    query = """
+                        SELECT DISTINCT
+                            e.EventID,
+                            e.Title,
+                            e.Description,
+                            e.StartTime,
+                            e.Location,
+                            c.Name AS CategoryName,
+                            u.Username AS FriendUsername,
+                            r.Status AS FriendStatus,
+                            -- Calculate friend influence score
+                            CASE 
+                                WHEN r.Status = 'Going' THEN 2.0
+                                WHEN r.Status = 'Interested' THEN 1.0
+                                ELSE 0.0
+                            END as BaseScore,
+                            COUNT(r.UserUID) OVER (PARTITION BY e.EventID) as FriendCount
+                        FROM RSVPs r
+                        JOIN SocialConnections sc ON r.UserUID = sc.FollowingUID
+                        JOIN Users u ON r.UserUID = u.FirebaseUID
+                        JOIN Events e ON r.EventID = e.EventID
+                        LEFT JOIN EventCategories c ON e.CategoryID = c.CategoryID
+                        WHERE sc.FollowerUID = ?
+                        AND r.Status IN ('Going', 'Interested')
+                        AND e.StartTime > GETDATE()
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM RSVPs r2
+                            WHERE r2.UserUID = ?
+                                AND r2.EventID = r.EventID
+                        )
+                        ORDER BY FriendCount DESC, BaseScore DESC, e.StartTime ASC
+                    """
+                else:
+                    # Fallback to simple query
+                    query = """
+                        SELECT DISTINCT
+                            e.EventID,
+                            e.Title,
+                            e.Description,
+                            e.StartTime,
+                            e.Location,
+                            c.Name AS CategoryName,
+                            u.Username AS FriendUsername,
+                            r.Status AS FriendStatus
+                        FROM RSVPs r
+                        JOIN SocialConnections sc ON r.UserUID = sc.FollowingUID
+                        JOIN Users u ON r.UserUID = u.FirebaseUID
+                        JOIN Events e ON r.EventID = e.EventID
+                        LEFT JOIN EventCategories c ON e.CategoryID = c.CategoryID
+                        WHERE sc.FollowerUID = ?
+                        AND r.Status IN ('Going', 'Interested')
+                        AND e.StartTime > GETDATE()
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM RSVPs r2
+                            WHERE r2.UserUID = ?
+                                AND r2.EventID = r.EventID
+                        )
+                        ORDER BY r.CreatedAt DESC
+                    """
 
-def fetch_friend_recommendations(self, user_uid: str, include_scoring: bool = True) -> List[Dict[str, Any]]:
-    """Enhanced version: Fetch events that friends are attending with improved scoring"""
-    try:
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+                cursor.execute(query, (user_uid, user_uid))
+                columns = [column[0] for column in cursor.description]
+                recommendations = [dict(zip(columns, row))
+                                   for row in cursor.fetchall()]
 
-            if include_scoring:
-                # Query with friend-based scoring
-                query = """
-                    SELECT DISTINCT
-                        e.EventID,
-                        e.Title,
-                        e.Description,
-                        e.StartTime,
-                        e.Location,
-                        c.Name AS CategoryName,
-                        u.Username AS FriendUsername,
-                        r.Status AS FriendStatus,
-                        -- Calculate friend influence score
-                        CASE 
-                            WHEN r.Status = 'Going' THEN 2.0
-                            WHEN r.Status = 'Interested' THEN 1.0
-                            ELSE 0.0
-                        END as BaseScore,
-                        COUNT(r.UserUID) OVER (PARTITION BY e.EventID) as FriendCount
-                    FROM RSVPs r
-                    JOIN SocialConnections sc ON r.UserUID = sc.FollowingUID
-                    JOIN Users u ON r.UserUID = u.FirebaseUID
-                    JOIN Events e ON r.EventID = e.EventID
-                    LEFT JOIN EventCategories c ON e.CategoryID = c.CategoryID
-                    WHERE sc.FollowerUID = ?
-                      AND r.Status IN ('Going', 'Interested')
-                      AND e.StartTime > GETDATE()
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM RSVPs r2
-                          WHERE r2.UserUID = ?
-                            AND r2.EventID = r.EventID
-                      )
-                    ORDER BY FriendCount DESC, BaseScore DESC, e.StartTime ASC
-                """
-            else:
-                # Original simple query
-                query = """
-                    SELECT DISTINCT
-                        e.EventID,
-                        e.Title,
-                        e.Description,
-                        e.StartTime,
-                        e.Location,
-                        c.Name AS CategoryName,
-                        u.Username AS FriendUsername,
-                        r.Status AS FriendStatus
-                    FROM RSVPs r
-                    JOIN SocialConnections sc ON r.UserUID = sc.FollowingUID
-                    JOIN Users u ON r.UserUID = u.FirebaseUID
-                    JOIN Events e ON r.EventID = e.EventID
-                    LEFT JOIN EventCategories c ON e.CategoryID = c.CategoryID
-                    WHERE sc.FollowerUID = ?
-                      AND r.Status IN ('Going', 'Interested')
-                      AND e.StartTime > GETDATE()
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM RSVPs r2
-                          WHERE r2.UserUID = ?
-                            AND r2.EventID = r.EventID
-                      )
-                    ORDER BY r.CreatedAt DESC
-                """
+                logger.info(
+                    f"Fetched {len(recommendations)} friend recommendations for user {user_uid}")
+                return recommendations
 
-            cursor.execute(query, (user_uid, user_uid))
-            columns = [column[0] for column in cursor.description]
-            recommendations = [dict(zip(columns, row))
-                               for row in cursor.fetchall()]
-
-            logger.info(
-                f"Fetched {len(recommendations)} friend recommendations for user {user_uid}")
-            return recommendations
-
-    except Exception as e:
-        logger.error(
-            f"Error fetching friend recommendations for user {user_uid}: {e}")
-        return []
+        except Exception as e:
+            logger.error(
+                f"Error fetching friend recommendations for user {user_uid}: {e}")
+            return []
 
 
 class EmbeddingGenerator:
@@ -712,6 +687,8 @@ class VectorStore:
             return np.array([]), np.array([])
 
         # Normalize query vector
+        if query_vector.size == 0:
+            return np.array([]), np.array([])
         query_vector = query_vector.astype('float32').reshape(1, -1)
         faiss.normalize_L2(query_vector)
 
