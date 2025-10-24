@@ -11,6 +11,7 @@ import RequireAuth from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthContext";
 import ProfileContainer from "./pages/ProfileContainer";
 import Profile from "./pages/Profile";
+import SavedEventsPage from "./pages/SavedEventsPage";
 
 
 function Following() {
@@ -39,7 +40,7 @@ function App() {
                 <Routes>
                   <Route path="/discover" element={<Discover />} />
                   <Route path="/following" element={<Following />} />
-                  <Route path="/saved" element={<Saved />} />
+                  <Route path="/saved" element={<SavedEventsPage />} />
                   <Route path="*" element={<Discover />} />
                   <Route path="/profile" element=
                   {<RequireAuth>
