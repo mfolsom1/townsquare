@@ -1,3 +1,14 @@
+# --- CONSTANT USER FOR TESTING ---
+ALICE_USER = {
+    "email": "aliceGator@ufl.edu",
+    "password": "GatorNation2024!",
+    "first_name": "Alice",
+    "last_name": "Gator",
+    "username": "alicegator",
+    "location": "Gainesville, FL 32611",
+    "bio": "Proud UF student and Gator fan. Loves football, hiking, and local music!"
+}
+# Fix: uuid import needed for event image URLs
 import pyodbc
 from dotenv import load_dotenv
 import os
@@ -5,6 +16,10 @@ from faker import Faker
 import random
 import uuid
 from datetime import datetime, timedelta
+
+# Firebase Admin SDK imports
+import firebase_admin
+from firebase_admin import credentials, auth
 
 # --- CONFIGURATION (MODIFIED) ---
 # Numbers have been halved to reduce the amount of data
@@ -112,7 +127,45 @@ def populate_data(conn, cursor):
         activities = ["Live Music", "Gators Watch Party", "Yoga Session", "Farmers Market", "Art Walk", "Brewery Tour", "Tech Meetup", "Outdoor Movie Night", "Volunteer Day", "Food Truck Rally"]
         venues = ["at Depot Park", "at The High Dive", "at Ben Hill Griffin Stadium", "at Bo Diddley Plaza", "at First Magnitude", "at Celebration Pointe", "on UF Campus", "at Paynes Prairie"]
         return f"{random.choice(activities)} {random.choice(venues)}"
-        
+
+
+    # --- FETCH REAL FIREBASE UIDs ---
+    # Load Firebase credentials from .env
+    firebase_json_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if not firebase_json_path or not os.path.exists(firebase_json_path):
+        raise RuntimeError(f"Firebase credentials not found at {firebase_json_path}")
+
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(firebase_json_path)
+        firebase_admin.initialize_app(cred)
+
+    # Fetch all Firebase user UIDs
+    print("🔑 Fetching real Firebase UIDs...")
+    firebase_users = []
+    page = auth.list_users()
+    while page:
+        for user in page.users:
+            firebase_users.append(user)
+        page = page.get_next_page()
+    print(f"  - Found {len(firebase_users)} Firebase users.")
+
+    # Find Alice's Firebase UID if she exists
+    alice_uid = None
+    for user in firebase_users:
+        if user.email.lower() == ALICE_USER["email"].lower():
+            alice_uid = user.uid
+            break
+
+    # If Alice is not in Firebase, use a placeholder UID and warn
+    if not alice_uid:
+        print(f"⚠️  Alice user not found in Firebase. She will be created with a placeholder UID.")
+        alice_uid = "alice-placeholder-uid"
+
+    # Prepare user UIDs for other users (excluding Alice's UID if present)
+    other_uids = [user.uid for user in firebase_users if user.uid != alice_uid]
+    if len(other_uids) < NUM_USERS - 1:
+        raise RuntimeError(f"Not enough Firebase users ({len(other_uids)}) to populate {NUM_USERS-1} users (excluding Alice). Please create more users in Firebase.")
+
     try:
         clear_database(cursor)
 
@@ -131,7 +184,7 @@ def populate_data(conn, cursor):
         cursor.execute("SELECT InterestID FROM Interests")
         interest_ids = [row.InterestID for row in cursor.fetchall()]
         print("  - Populated Interests")
-        
+
         # EventTags (MODIFIED)
         tags_data = [(name, f"Events related to {name} in Gainesville.", random_hex_color()) for name in GAINESVILLE_TAGS]
         cursor.executemany(
@@ -144,18 +197,29 @@ def populate_data(conn, cursor):
         print("✅ Independent tables populated.\n")
 
         # 2. Populate Users
-        print("👤 Populating Users...")
+        print("👤 Populating Alice user and other users with real Firebase UIDs...")
         users_data = []
-        for _ in range(NUM_USERS):
+        # Add Alice first
+        users_data.append((
+            alice_uid,
+            ALICE_USER["username"],
+            ALICE_USER["email"],
+            ALICE_USER["first_name"],
+            ALICE_USER["last_name"],
+            ALICE_USER["location"],
+            ALICE_USER["bio"]
+        ))
+        # Add other users
+        for i in range(NUM_USERS - 1):
             first_name = fake.first_name()
             last_name = fake.last_name()
             users_data.append((
-                str(uuid.uuid4()),
+                other_uids[i],
                 f"{first_name.lower()}{last_name.lower()}{random.randint(10, 999)}",
                 fake.unique.email(),
                 first_name,
                 last_name,
-                f"Gainesville, FL {fake.zipcode_in_state(state_abbr='FL')}", # MODIFIED: Gainesville location
+                f"Gainesville, FL {fake.zipcode_in_state(state_abbr='FL')}",
                 fake.text(max_nb_chars=250)
             ))
         cursor.executemany(
@@ -195,10 +259,16 @@ def populate_data(conn, cursor):
         print("🔗 Populating relationship tables...")
         # UserInterests
         user_interests_data = set()
+        # Give Alice 3 interests (first 3 from interest_ids)
+        for interest in interest_ids[:3]:
+            user_interests_data.add((alice_uid, interest))
+        # Other users get random interests
         for uid in user_uids:
+            if uid == alice_uid:
+                continue
             num_interests = random.randint(1, min(len(interest_ids), MAX_INTERESTS_PER_USER))
             for interest in random.sample(interest_ids, k=num_interests):
-                 user_interests_data.add((uid, interest))
+                user_interests_data.add((uid, interest))
         cursor.executemany("INSERT INTO UserInterests (UserUID, InterestID) VALUES (?, ?)", list(user_interests_data))
         print(f"  - Populated {len(user_interests_data)} UserInterests")
 
@@ -213,11 +283,18 @@ def populate_data(conn, cursor):
 
         # SocialConnections
         connections_data = set()
+        # Give Alice 2 friends (first 2 other users)
+        alice_friends = [uid for uid in user_uids if uid != alice_uid][:2]
+        for friend_uid in alice_friends:
+            connections_data.add((alice_uid, friend_uid))
+            connections_data.add((friend_uid, alice_uid))  # Make friendship mutual
+        # Other random connections
         num_connections_to_create = int(NUM_USERS * (NUM_USERS - 1) * PERCENT_CONNECTIONS)
         if len(user_uids) > 1:
             while len(connections_data) < num_connections_to_create:
                 follower, following = random.sample(user_uids, 2)
-                connections_data.add((follower, following))
+                if follower != following:
+                    connections_data.add((follower, following))
             cursor.executemany("INSERT INTO SocialConnections (FollowerUID, FollowingUID) VALUES (?, ?)", list(connections_data))
             print(f"  - Populated {len(connections_data)} SocialConnections")
 
