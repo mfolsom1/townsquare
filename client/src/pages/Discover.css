@@ -122,3 +122,41 @@
 .ts-error {
     color: #d9534f;
 }
+
+/* card container already exists in your sheet; these are just the save/heart bits */
+/* Ensure the card container allows absolute children */
+.event-card { position: relative; overflow: hidden; }
+
+/* Heart (save) button */
+.event-save {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 1px solid var(--stroke, #e7e8ee);
+  background: rgba(255,255,255,.9);
+  backdrop-filter: blur(4px);
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--lift, 0 2px 10px rgba(0,0,0,.04));
+}
+
+.event-save:hover { background: #fff; }
+.event-save:focus-visible { outline: 2px solid var(--focus, #a7afff); outline-offset: 2px; }
+
+/* Material Symbols heart icon defaults to outlined */
+.event-heart {
+  font-variation-settings: 'FILL' 0, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text, #1f2937);
+}
+
+/* Saved state: fill the heart & brand color */
+.event-save.saved .event-heart {
+  font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+  color: var(--brand, #6E77FF);
+}

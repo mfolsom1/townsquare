@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { getAllEvents, getEvents } from "../api"; // Make sure the path to your api.js is correct
 import "./Discover.css";
+import SavedEvents from "../hooks/SavedEvents";
 
 // --- Helper Data & Functions ---
 
@@ -48,13 +49,20 @@ const formatEventTimeRange = (startStr, endStr) => {
  * EventCard Component: Displays a single event with all its details.
  * This component is designed to be clickable, leading to the event's detail page.
  */
-const EventCard = ({ event }) => {
+ const EventCard = ({ event, isSaved, onToggleSaved }) => {
     const { name, color } = categoryDetails[event.category_id] || categoryDetails.default;
 
     // Truncate long descriptions to keep the card clean
     const shortDescription = event.description.length > 100
         ? event.description.substring(0, 100) + "..."
         : event.description;
+
+    const saved = isSaved(event.event_id);
+    const onHeartClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onToggleSaved(event);
+    };
 
     return (
         <Link to={`/events/${event.event_id}`} className="event-card">
@@ -65,6 +73,19 @@ const EventCard = ({ event }) => {
                     alt={event.title}
                     className="event-card-image"
                 />
+
+                {/* Heart (save) button in top-right */}
+                <button
+                    className={`event-save ${saved ? "saved" : ""}`}
+                    aria-pressed={saved}
+                    aria-label={saved ? "Unsave event" : "Save event"}
+                    onClick={onHeartClick}
+                    title={saved ? "Remove from Saved" : "Save to Saved"}
+                    >
+                    <span className="material-symbols-outlined event-heart">favorite</span>
+                    </button>
+
+
                 <span className="event-card-category-badge" style={{ backgroundColor: color }}>
                     {name}
                 </span>
@@ -100,6 +121,7 @@ export default function Discover() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchParams] = useSearchParams();
+    const { isSaved, toggleSaved } = SavedEvents();
 
     useEffect(() => {
         const fetchEvents = async () => {
@@ -128,9 +150,14 @@ export default function Discover() {
 
         return (
             <div className="event-grid">
-                {events.map(event => (
-                    <EventCard key={event.event_id} event={event} />
-                ))}
+                 {events.map((event) => (
+                   <EventCard
+                     key={event.event_id}
+                     event={event}
+                     isSaved={isSaved}
+                     onToggleSaved={toggleSaved}
+                   />
+                 ))}
             </div>
         );
     };
