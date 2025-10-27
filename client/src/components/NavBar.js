@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import CreateEventModal from "./CreateEvent";
 import { useAuth } from "../auth/AuthContext";
+import SearchBar from "./SearchBar";
 import "./NavBar.css";
 
 export default function NavBar() { 
@@ -25,6 +26,8 @@ export default function NavBar() {
         <div className="ts-left">
           <Link to="/discover" className="ts-brand">Townsquare</Link>
         </div>
+
+        <SearchBar />
 
         <nav className="ts-center">
           <NavLink to="/discover" className="ts-tab">Discover</NavLink>
