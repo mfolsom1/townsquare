@@ -1,7 +1,7 @@
 // Discover.js: Page for discovering events
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { getAllEvents, getEvents } from "../api"; // Make sure the path to your api.js is correct
+import { getEvents } from "../api"; // Make sure the path to your api.js is correct
 import "./Discover.css";
 import SavedEvents from "../hooks/SavedEvents";
 

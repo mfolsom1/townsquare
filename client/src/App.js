@@ -12,11 +12,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import ProfileContainer from "./pages/ProfileContainer";
 import Profile from "./pages/Profile";
 import SavedEventsPage from "./pages/SavedEventsPage";
-
-
-function Following() {
-  return <h1>Following Page</h1>;
-}
+import Following from "./pages/Following"
 
 function Saved() {
   return <h1>Saved Events Page</h1>;
