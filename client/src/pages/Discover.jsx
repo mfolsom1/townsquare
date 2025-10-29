@@ -1,7 +1,7 @@
 // Discover.js: Page for discovering events
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-import { getAllEvents } from "../api"; // Make sure the path to your api.js is correct
+import { useEvents } from "../contexts/EventContext";
 import "./Discover.css";
 import SavedEvents from "../hooks/SavedEvents";
 
@@ -9,11 +9,13 @@ import SavedEvents from "../hooks/SavedEvents";
 
 // Maps category IDs to human-readable names and colors for styling the badge
 const categoryDetails = {
-    1: { name: "Tech", color: "#007BFF" },
-    2: { name: "Music", color: "#E83E8C" },
-    3: { name: "Art & Culture", color: "#FD7E14" },
-    4: { name: "Food & Drink", color: "#28A745" },
-    5: { name: "Community", color: "#17A2B8" },
+    1: { name: "Gator Sports", color: "#FA4616" },
+    2: { name: "UF Campus Life", color: "#0021A5" },
+    3: { name: "Local Music & Arts", color: "#FFC300" },
+    4: { name: "Outdoor & Nature", color: "#1A9956" },
+    5: { name: "Food & Breweries", color: "#900C3F" },
+    6: { name: "Community & Markets", color: "#581845" },
+    7: { name: "Tech & Innovation", color: "#2A6E99" },
     default: { name: "General", color: "#6C757D" }
 };
 
@@ -117,32 +119,19 @@ const formatEventTimeRange = (startStr, endStr) => {
 // --- Main Discover Page Component ---
 
 export default function Discover() {
-    const [events, setEvents] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const { events, loading, error, successMessage, refreshEvents } = useEvents();
     const { isSaved, toggleSaved } = SavedEvents();
-
-    useEffect(() => {
-        const fetchEvents = async () => {
-            try {
-                // The API now returns an object where keys are event IDs
-                const response = await getAllEvents();
-                // We convert the object of events into an array
-                const eventsArray = Object.values(response.events || {});
-                setEvents(eventsArray);
-            } catch (err) {
-                setError(err.message || "An unexpected error occurred.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchEvents();
-    }, []);
 
     const renderContent = () => {
         if (loading) return <p className="ts-loading">Loading events...</p>;
-        if (error) return <p className="ts-error">Error: {error}</p>;
+        if (error) return (
+            <div className="ts-error-container">
+                <p className="ts-error">Error: {error}</p>
+                <button onClick={refreshEvents} className="ts-retry-btn">
+                    Try Again
+                </button>
+            </div>
+        );
         if (events.length === 0) return <p>No upcoming events found. Why not create one?</p>;
 
         return (
@@ -161,8 +150,20 @@ export default function Discover() {
 
     return (
         <main className="ts-page">
-            <h1 className="ts-title">Discover Events</h1>
-            <p className="ts-subtitle">Find out what's happening in your community</p>
+            <div className="ts-header">
+                <h1 className="ts-title">Discover Events</h1>
+                <p className="ts-subtitle">Find out what's happening in your community</p>
+                <button onClick={refreshEvents} className="ts-refresh-btn" disabled={loading}>
+                    {loading ? "Refreshing..." : "Refresh"}
+                </button>
+            </div>
+            
+            {successMessage && (
+                <div className="ts-success-message">
+                    {successMessage}
+                </div>
+            )}
+            
             {renderContent()}
         </main>
     );

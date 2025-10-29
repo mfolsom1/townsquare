@@ -125,10 +125,10 @@ class User:
             else:
                 # Create new interest
                 cursor.execute(
-                    "INSERT INTO Interests (Name) VALUES (?)",
+                    "INSERT INTO Interests (Name) OUTPUT INSERTED.InterestID VALUES (?)",
                     (interest_name,)
                 )
-                interest_id = cursor.lastrowid
+                interest_id = cursor.fetchone()[0]
             
             # Add user-interest relationship (ignore if already exists)
             cursor.execute(
@@ -188,10 +188,10 @@ class User:
                 else:
                     # Create new interest
                     cursor.execute(
-                        "INSERT INTO Interests (Name) VALUES (?)",
+                        "INSERT INTO Interests (Name) OUTPUT INSERTED.InterestID VALUES (?)",
                         (interest_name,)
                     )
-                    interest_id = cursor.lastrowid
+                    interest_id = cursor.fetchone()[0]
                 
                 # Add user-interest relationship
                 cursor.execute(
@@ -439,19 +439,27 @@ class Event:
         self.updated_at = updated_at
     
     def to_dict(self):
+        # Helper function to safely convert datetime to ISO format
+        def safe_isoformat(dt):
+            if dt is None:
+                return None
+            if hasattr(dt, 'isoformat'):
+                return dt.isoformat()
+            return str(dt)  # If it's already a string, return as is
+        
         return {
             "event_id": self.event_id,
             "organizer_uid": self.organizer_uid,
             "title": self.title,
             "description": self.description,
-            "start_time": self.start_time.isoformat(),
-            "end_time": self.end_time.isoformat(),
+            "start_time": safe_isoformat(self.start_time),
+            "end_time": safe_isoformat(self.end_time),
             "location": self.location,
             "category_id": self.category_id,
             "max_attendees": self.max_attendees,
             "image_url": self.image_url,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at
+            "created_at": safe_isoformat(self.created_at),
+            "updated_at": safe_isoformat(self.updated_at)
         }
     
     @staticmethod
@@ -459,15 +467,17 @@ class Event:
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
+            # Use OUTPUT clause to get the inserted EventID
             cursor.execute(
                 """
                 INSERT INTO Events (OrganizerUID, Title, Description, StartTime, EndTime, Location, CategoryID, MaxAttendees, ImageURL)
+                OUTPUT INSERTED.EventID
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
             )
+            event_id = cursor.fetchone()[0]
             conn.commit()
-            event_id = cursor.lastrowid
 
             return Event(event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
         except Exception as e:

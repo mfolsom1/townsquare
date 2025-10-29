@@ -3,21 +3,64 @@
     display: grid; place-items: center; z-index: 60;
   }
   .cem-modal {
-    width: min(560px, 92vw); background: #fff; border-radius: 14px;
+    width: min(600px, 92vw); background: #fff; border-radius: 14px;
     box-shadow: 0 20px 60px rgba(0,0,0,.2); overflow: hidden;
+    max-height: 90vh; display: flex; flex-direction: column;
   }
   .cem-header {
     display:flex; justify-content:space-between; align-items:center;
-    padding:14px 18px; border-bottom:1px solid #eee;
+    padding:14px 18px; border-bottom:1px solid #eee; flex-shrink: 0;
   }
   .cem-close { border:none; background:transparent; font-size:22px; cursor:pointer; }
-  .cem-form { display:grid; gap:12px; padding:16px 18px 18px; }
-  .cem-form label { display:grid; gap:6px; font-size:14px; }
-  .cem-form input, .cem-form textarea {
-    padding:10px 12px; border:1px solid #ddd; border-radius:10px; font-size:14px;
+  .cem-form { 
+    display:grid; gap:12px; padding:16px 18px 18px; 
+    overflow-y: auto; flex: 1;
   }
-  .cem-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:6px; }
-  .cem-btn { padding:9px 14px; border-radius:10px; border:1px solid #ddd; cursor:pointer; }
+  .cem-form label { display:grid; gap:6px; font-size:14px; font-weight: 500; }
+  .cem-form input, .cem-form textarea, .cem-form select {
+    padding:10px 12px; border:1px solid #ddd; border-radius:10px; font-size:14px;
+    transition: border-color 0.2s ease;
+  }
+  .cem-form input:focus, .cem-form textarea:focus, .cem-form select:focus {
+    outline: none; border-color: #1f6feb; box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.1);
+  }
+  .cem-date-time-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .cem-optional-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .cem-error {
+    background: #fef2f2; color: #dc2626; padding: 10px 12px; 
+    border-radius: 8px; font-size: 14px; border: 1px solid #fecaca;
+  }
+  .cem-actions { 
+    display:flex; justify-content:flex-end; gap:10px; margin-top:6px; 
+    padding-top: 16px; border-top: 1px solid #eee; flex-shrink: 0;
+  }
+  .cem-btn { 
+    padding:9px 14px; border-radius:10px; border:1px solid #ddd; cursor:pointer; 
+    font-size: 14px; font-weight: 500; transition: all 0.2s ease;
+  }
+  .cem-btn:hover:not(:disabled) {
+    transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .cem-btn:disabled {
+    opacity: 0.6; cursor: not-allowed;
+  }
   .cem-btn.primary { background:#1f6feb; color:#fff; border-color:#1f6feb; }
+  .cem-btn.primary:hover:not(:disabled) { background: #1557c7; }
   .cem-btn.ghost { background:#f7f8fa; }
+  .cem-btn.ghost:hover:not(:disabled) { background: #eaeef2; }
+
+  /* Responsive design */
+  @media (max-width: 480px) {
+    .cem-date-time-grid,
+    .cem-optional-grid {
+      grid-template-columns: 1fr;
+    }
+    .cem-modal {
+      width: 95vw;
+    }
+  }
   
