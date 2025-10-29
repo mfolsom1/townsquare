@@ -239,6 +239,7 @@ def register_routes(app):
             })
         except Exception as e:
             return jsonify({"error": f"Failed to get interests: {str(e)}"}), 500
+
     
     # ===== Social Connection functions ===== #
     @app.route('/api/social/follow', methods=['POST'])
@@ -628,3 +629,39 @@ def register_routes(app):
     def not_found(error):
         return jsonify({"error": "Not found"}), 404
     
+    # ===== Friend Event Routes =====
+    @app.route('/api/friends/events', methods=['GET'])
+    @require_auth
+    def get_friend_events(firebase_uid):
+        try:
+            events = Event.get_friend_events(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get friend events: {str(e)}"}), 500
+
+    @app.route('/api/friends/created', methods=['GET'])
+    @require_auth
+    def get_friend_created_events(firebase_uid):
+        try:
+            events = Event.get_friend_created_events(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get friend created events: {str(e)}"}), 500
+
+    @app.route('/api/friends/feed', methods=['GET'])
+    @require_auth
+    def get_friend_feed(firebase_uid):
+        try:
+            events = Event.get_friend_feed(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get friend feed: {str(e)}"}), 500
