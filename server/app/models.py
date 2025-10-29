@@ -125,10 +125,10 @@ class User:
             else:
                 # Create new interest
                 cursor.execute(
-                    "INSERT INTO Interests (Name) VALUES (?)",
+                    "INSERT INTO Interests (Name) OUTPUT INSERTED.InterestID VALUES (?)",
                     (interest_name,)
                 )
-                interest_id = cursor.lastrowid
+                interest_id = cursor.fetchone()[0]
             
             # Add user-interest relationship (ignore if already exists)
             cursor.execute(
@@ -188,10 +188,10 @@ class User:
                 else:
                     # Create new interest
                     cursor.execute(
-                        "INSERT INTO Interests (Name) VALUES (?)",
+                        "INSERT INTO Interests (Name) OUTPUT INSERTED.InterestID VALUES (?)",
                         (interest_name,)
                     )
-                    interest_id = cursor.lastrowid
+                    interest_id = cursor.fetchone()[0]
                 
                 # Add user-interest relationship
                 cursor.execute(
@@ -439,19 +439,27 @@ class Event:
         self.updated_at = updated_at
     
     def to_dict(self):
+        # Helper function to safely convert datetime to ISO format
+        def safe_isoformat(dt):
+            if dt is None:
+                return None
+            if hasattr(dt, 'isoformat'):
+                return dt.isoformat()
+            return str(dt)  # If it's already a string, return as is
+        
         return {
             "event_id": self.event_id,
             "organizer_uid": self.organizer_uid,
             "title": self.title,
             "description": self.description,
-            "start_time": self.start_time.isoformat(),
-            "end_time": self.end_time.isoformat(),
+            "start_time": safe_isoformat(self.start_time),
+            "end_time": safe_isoformat(self.end_time),
             "location": self.location,
             "category_id": self.category_id,
             "max_attendees": self.max_attendees,
             "image_url": self.image_url,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at
+            "created_at": safe_isoformat(self.created_at),
+            "updated_at": safe_isoformat(self.updated_at)
         }
     
     @staticmethod
@@ -459,15 +467,17 @@ class Event:
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
+            # Use OUTPUT clause to get the inserted EventID
             cursor.execute(
                 """
                 INSERT INTO Events (OrganizerUID, Title, Description, StartTime, EndTime, Location, CategoryID, MaxAttendees, ImageURL)
+                OUTPUT INSERTED.EventID
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
             )
+            event_id = cursor.fetchone()[0]
             conn.commit()
-            event_id = cursor.lastrowid
 
             return Event(event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
         except Exception as e:
@@ -587,5 +597,209 @@ class Event:
             raise e
         finally:
             conn.close()
+    
+    @staticmethod
+    def get_events_by_organizer(organizer_uid):
+        """Get all events organized by a specific user"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT EventID, OrganizerUID, Title, Description, StartTime, EndTime, Location, 
+                       CategoryID, MaxAttendees, ImageURL, CreatedAt, UpdatedAt
+                FROM Events 
+                WHERE OrganizerUID = ?
+                ORDER BY StartTime ASC
+                """,
+                (organizer_uid,)
+            )
+            rows = cursor.fetchall()
             
+            events = [
+                Event(
+                    event_id=row[0],
+                    organizer_uid=row[1],
+                    title=row[2],
+                    description=row[3],
+                    start_time=row[4],
+                    end_time=row[5],
+                    location=row[6],
+                    category_id=row[7],
+                    max_attendees=row[8],
+                    image_url=row[9],
+                    created_at=row[10],
+                    updated_at=row[11]
+                )
+                for row in rows
+            ]
+            
+            return events
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_events_by_attendee(user_uid):
+        """Get all events that a user is attending (has RSVP'd 'Going' to), excluding events they organized"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT e.EventID, e.OrganizerUID, e.Title, e.Description, e.StartTime, e.EndTime, e.Location, 
+                       e.CategoryID, e.MaxAttendees, e.ImageURL, e.CreatedAt, e.UpdatedAt
+                FROM Events e
+                INNER JOIN RSVPs r ON e.EventID = r.EventID
+                WHERE r.UserUID = ? AND r.Status = 'Going' AND e.OrganizerUID != ?
+                ORDER BY e.StartTime ASC
+                """,
+                (user_uid, user_uid)
+            )
+            rows = cursor.fetchall()
+            
+            events = [
+                Event(
+                    event_id=row[0],
+                    organizer_uid=row[1],
+                    title=row[2],
+                    description=row[3],
+                    start_time=row[4],
+                    end_time=row[5],
+                    location=row[6],
+                    category_id=row[7],
+                    max_attendees=row[8],
+                    image_url=row[9],
+                    created_at=row[10],
+                    updated_at=row[11]
+                )
+                for row in rows
+            ]
+            
+            return events
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
+
+
+class RSVP:
+    def __init__(self, rsvp_id, user_uid, event_id, status, created_at=None, updated_at=None):
+        self.rsvp_id = rsvp_id
+        self.user_uid = user_uid
+        self.event_id = event_id
+        self.status = status
+        self.created_at = created_at
+        self.updated_at = updated_at
+    
+    def to_dict(self):
+        def safe_isoformat(dt):
+            if dt is None:
+                return None
+            if hasattr(dt, 'isoformat'):
+                return dt.isoformat()
+            return str(dt)
+        
+        return {
+            "rsvp_id": self.rsvp_id,
+            "user_uid": self.user_uid,
+            "event_id": self.event_id,
+            "status": self.status,
+            "created_at": safe_isoformat(self.created_at),
+            "updated_at": safe_isoformat(self.updated_at)
+        }
+    
+    @staticmethod
+    def create_or_update_rsvp(user_uid, event_id, status):
+        """Create or update an RSVP for an event"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if RSVP already exists
+            cursor.execute(
+                "SELECT RSVPID FROM RSVPs WHERE UserUID = ? AND EventID = ?",
+                (user_uid, event_id)
+            )
+            existing_rsvp = cursor.fetchone()
+            
+            if existing_rsvp:
+                # Update existing RSVP
+                cursor.execute(
+                    "UPDATE RSVPs SET Status = ?, UpdatedAt = GETDATE() WHERE RSVPID = ?",
+                    (status, existing_rsvp[0])
+                )
+                rsvp_id = existing_rsvp[0]
+            else:
+                # Create new RSVP
+                cursor.execute(
+                    """
+                    INSERT INTO RSVPs (UserUID, EventID, Status)
+                    OUTPUT INSERTED.RSVPID
+                    VALUES (?, ?, ?)
+                    """,
+                    (user_uid, event_id, status)
+                )
+                rsvp_id = cursor.fetchone()[0]
+            
+            conn.commit()
+            return RSVP(rsvp_id, user_uid, event_id, status)
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_user_rsvps(user_uid):
+        """Get all RSVPs for a user"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT RSVPID, UserUID, EventID, Status, CreatedAt, UpdatedAt
+                FROM RSVPs 
+                WHERE UserUID = ?
+                ORDER BY CreatedAt DESC
+                """,
+                (user_uid,)
+            )
+            rows = cursor.fetchall()
+            
+            rsvps = [
+                RSVP(
+                    rsvp_id=row[0],
+                    user_uid=row[1],
+                    event_id=row[2],
+                    status=row[3],
+                    created_at=row[4],
+                    updated_at=row[5]
+                )
+                for row in rows
+            ]
+            
+            return rsvps
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def delete_rsvp(user_uid, event_id):
+        """Delete an RSVP"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "DELETE FROM RSVPs WHERE UserUID = ? AND EventID = ?",
+                (user_uid, event_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
 

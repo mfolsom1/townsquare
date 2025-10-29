@@ -61,7 +61,7 @@ export default function EventDetail() {
     return (
         <main className="event-detail-page">
             <div className="event-detail-container">
-                <Link to="/" className="back-link">← Back to Discover</Link>
+                <Link to="/discover" className="back-link">← Back to Discover</Link>
                 
                 <img 
                     src={event.image_url || 'https://placehold.co/1200x600/EEE/31343C?text=Townsquare+Event'} 
