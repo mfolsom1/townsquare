@@ -6,6 +6,8 @@ import {
   getUserInterests,
   verifyUserWithBackend,
   updateUserProfile,
+  getUserOrganizedEvents,
+  getUserAttendingEvents,
 } from "../api";
 import { updateProfile as fbUpdateProfile } from "firebase/auth";
 import ProfilePage from "./Profile";
@@ -41,21 +43,56 @@ export default function ProfileContainer() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [interests, setInterests] = useState([]);
+  const [myEvents, setMyEvents] = useState([]);
+  const [attendingEvents, setAttendingEvents] = useState([]);
   const [error, setError] = useState(null);
+
+  // Helper function to format event data for the UI
+  const formatEventForUI = (event) => ({
+    title: event.title,
+    date: event.start_time ? new Date(event.start_time).toLocaleDateString() : 'TBD',
+    location: event.location,
+    id: event.event_id,
+    imageUrl: event.image_url
+  });
 
   async function loadProfile(idToken) {
     const rawProfile = await getUserProfile(idToken);
     const norm = normalizeProfile(rawProfile, user);
     let ints = [];
+    let myEvts = [];
+    let attendingEvts = [];
+    
     try {
       const rawInts = await getUserInterests(idToken);
       ints = Array.isArray(rawInts) ? rawInts : rawInts?.interests ?? norm.interests ?? [];
     } catch {
       ints = norm.interests ?? [];
     }
+
+    try {
+      const organizedEventsResponse = await getUserOrganizedEvents(idToken);
+      const organizedEvents = organizedEventsResponse?.events || [];
+      myEvts = organizedEvents.map(formatEventForUI);
+    } catch (e) {
+      console.warn("Failed to fetch organized events:", e);
+      myEvts = [];
+    }
+
+    try {
+      const attendingEventsResponse = await getUserAttendingEvents(idToken);
+      const attendingEventsData = attendingEventsResponse?.events || [];
+      attendingEvts = attendingEventsData.map(formatEventForUI);
+    } catch (e) {
+      console.warn("Failed to fetch attending events:", e);
+      attendingEvts = [];
+    }
+    
     setProfile(rawProfile);
     setInterests(ints);
-    return { rawProfile, norm, ints };
+    setMyEvents(myEvts);
+    setAttendingEvents(attendingEvts);
+    return { rawProfile, norm, ints, myEvts, attendingEvts };
   }
 
   useEffect(() => {
@@ -145,8 +182,8 @@ export default function ProfileContainer() {
       location={norm.location || ""}
       study={profile?.study || ""}
       interests={interests || []}
-      myEvents={[]}
-      goingTo={[]}
+      myEvents={myEvents || []}
+      goingTo={attendingEvents || []}
       onSaveProfile={onSaveProfile}
       onCreateEvent={() => {}}
     />

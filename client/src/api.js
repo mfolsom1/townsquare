@@ -198,7 +198,62 @@ export async function updateEvent(idToken, eventId, updateData) {
  * @returns {Promise<object>} A success confirmation message.
  */
 export async function deleteEvent(idToken, eventId) {
-    return apiRequest(`/events/${eventId}`, { method: "DELETE" }, idToken);
+    return apiRequest(`/events/${eventId}`, {
+        method: "DELETE",
+    }, idToken);
+}
+
+/**
+ * Fetches events organized by the current user.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @returns {Promise<Array<object>>} A list of events organized by the user.
+ */
+export async function getUserOrganizedEvents(idToken) {
+    return apiRequest("/api/user/events/organized", { method: "GET" }, idToken);
+}
+
+/**
+ * Fetches events the current user is attending.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @returns {Promise<Array<object>>} A list of events the user is attending.
+ */
+export async function getUserAttendingEvents(idToken) {
+    return apiRequest("/api/user/events/attending", { method: "GET" }, idToken);
+}
+
+/**
+ * Creates or updates an RSVP for an event.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @param {number} eventId - The ID of the event to RSVP to.
+ * @param {string} status - The RSVP status ('Going', 'Interested', 'Not Going').
+ * @returns {Promise<object>} The created/updated RSVP data.
+ */
+export async function createOrUpdateRsvp(idToken, eventId, status = 'Going') {
+    return apiRequest(`/api/events/${eventId}/rsvp`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+    }, idToken);
+}
+
+/**
+ * Deletes an RSVP for an event.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @param {number} eventId - The ID of the event to remove RSVP from.
+ * @returns {Promise<object>} A success confirmation message.
+ */
+export async function deleteRsvp(idToken, eventId) {
+    return apiRequest(`/api/events/${eventId}/rsvp`, {
+        method: "DELETE",
+    }, idToken);
+}
+
+/**
+ * Fetches all RSVPs for the current user.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @returns {Promise<Array<object>>} A list of the user's RSVPs.
+ */
+export async function getUserRsvps(idToken) {
+    return apiRequest("/api/user/rsvps", { method: "GET" }, idToken);
 }
 
 //===============================
