@@ -22,9 +22,9 @@ function Saved() {
 
 function App() {
   return (
-    <AuthProvider>
-      <EventProvider>
-        <Router>
+    <Router>
+      <AuthProvider>
+        <EventProvider>
           <Routes>
 
             <Route path="/login" element={<Login />} />
@@ -54,10 +54,9 @@ function App() {
                 }
               />
             </Routes>
-          </Router>
         </EventProvider>
-    </AuthProvider>
-
+      </AuthProvider>
+    </Router>
   );
 }
 
