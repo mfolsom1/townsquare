@@ -1,5 +1,6 @@
 import React from 'react';
 import './Following.css'
+import EventCard from '../components/EventCard';
 
 export default function Following() {
   return (
