@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import "./CreateEvent.css";
 import { useAuth } from "../auth/AuthContext";
 import { createEvent } from "../api";
@@ -18,6 +18,9 @@ export default function CreateEvent({ open, onClose, onCreate }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Compute the minimum datetime value once per render
+  const minDateTime = useMemo(() => new Date().toISOString().slice(0, 16), []);
 
   useEffect(() => {
     if (!open) return;
@@ -119,7 +122,7 @@ export default function CreateEvent({ open, onClose, onCreate }) {
               <input 
                 type="datetime-local" 
                 name="startDateTime" 
-                min={new Date().toISOString().slice(0, 16)}
+                min={minDateTime}
                 required 
               />
             </label>
@@ -129,7 +132,7 @@ export default function CreateEvent({ open, onClose, onCreate }) {
               <input 
                 type="datetime-local" 
                 name="endDateTime" 
-                min={new Date().toISOString().slice(0, 16)}
+                min={minDateTime}
                 required 
               />
             </label>
