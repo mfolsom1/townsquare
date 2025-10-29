@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { NavLink, Link, useNavigate } from "react-router-dom";
+import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
 import CreateEventModal from "./CreateEvent";
 import { useAuth } from "../auth/AuthContext";
 import SearchBar from "./SearchBar";
+import { useEvents } from "../contexts/EventContext";
 import "./NavBar.css";
 
 export default function NavBar() { 
@@ -10,6 +11,8 @@ export default function NavBar() {
   const [openCreate, setOpenCreate] = useState (false);
 
   const { user, logout, initials } = useAuth();
+  const { addEvent } = useEvents();
+  const location = useLocation();
 
   // redirect after logout
   const nav = useNavigate();
@@ -19,6 +22,22 @@ export default function NavBar() {
     await logout();
     nav("/login", { replace: true })
   }
+
+  // Handle event creation success
+  const handleEventCreated = (newEvent) => {
+    console.log("NEW EVENT CREATED:", newEvent);
+    
+    // Add the new event to the global state
+    addEvent(newEvent);
+    
+    // Close the modal
+    setOpenCreate(false);
+    
+    // If we're not on the discover page, navigate there to show the new event
+    if (location.pathname !== "/discover" && location.pathname !== "/") {
+      nav("/discover");
+    }
+  };
 
   return (
     <>
@@ -54,7 +73,7 @@ export default function NavBar() {
       <CreateEventModal
         open={openCreate}
         onClose={() => setOpenCreate(false)}
-        onCreate={(data) => console.log("NEW EVENT:", data)}
+        onCreate={handleEventCreated}
       />
     </>
   );

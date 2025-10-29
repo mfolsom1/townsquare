@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask import Flask, jsonify, request
-from .models import Event
+from .models import Event, RSVP
 from firebase_admin import auth
 from .models import User
 from .auth_utils import require_auth
@@ -239,6 +239,7 @@ def register_routes(app):
             })
         except Exception as e:
             return jsonify({"error": f"Failed to get interests: {str(e)}"}), 500
+
     
     # ===== Social Connection functions ===== #
     @app.route('/api/social/follow', methods=['POST'])
@@ -457,6 +458,89 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     
+    @app.route('/api/user/events/organized', methods=['GET'])
+    @require_auth
+    def get_user_organized_events(firebase_uid):
+        """Get events organized by the current user"""
+        try:
+            events = Event.get_events_by_organizer(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get organized events: {str(e)}"}), 500
+    
+    @app.route('/api/user/events/attending', methods=['GET'])
+    @require_auth
+    def get_user_attending_events(firebase_uid):
+        """Get events the current user is attending"""
+        try:
+            events = Event.get_events_by_attendee(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get attending events: {str(e)}"}), 500
+    
+    # ===== RSVP functions ===== #
+    @app.route('/api/events/<int:event_id>/rsvp', methods=['POST'])
+    @require_auth
+    def create_or_update_rsvp(firebase_uid, event_id):
+        """Create or update an RSVP for an event"""
+        try:
+            data = request.json or {}
+            status = data.get('status', 'Going')
+            
+            # Validate status
+            valid_statuses = ['Going', 'Interested', 'Not Going']
+            if status not in valid_statuses:
+                return jsonify({"error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}), 400
+            
+            # Check if event exists
+            event = Event.get_event_by_id(event_id)
+            if not event:
+                return jsonify({"error": "Event not found"}), 404
+            
+            rsvp = RSVP.create_or_update_rsvp(firebase_uid, event_id, status)
+            return jsonify({
+                "success": True,
+                "message": "RSVP updated successfully",
+                "rsvp": rsvp.to_dict()
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to update RSVP: {str(e)}"}), 500
+    
+    @app.route('/api/events/<int:event_id>/rsvp', methods=['DELETE'])
+    @require_auth
+    def delete_rsvp(firebase_uid, event_id):
+        """Delete an RSVP for an event"""
+        try:
+            success = RSVP.delete_rsvp(firebase_uid, event_id)
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "RSVP deleted successfully"
+                })
+            else:
+                return jsonify({"error": "RSVP not found"}), 404
+        except Exception as e:
+            return jsonify({"error": f"Failed to delete RSVP: {str(e)}"}), 500
+    
+    @app.route('/api/user/rsvps', methods=['GET'])
+    @require_auth
+    def get_user_rsvps(firebase_uid):
+        """Get all RSVPs for the current user"""
+        try:
+            rsvps = RSVP.get_user_rsvps(firebase_uid)
+            return jsonify({
+                "success": True,
+                "rsvps": [rsvp.to_dict() for rsvp in rsvps]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get RSVPs: {str(e)}"}), 500
+    
     @app.route('/events/<int:event_id>', methods=['GET'])
     def get_event_by_id(event_id):
         try:
@@ -581,3 +665,39 @@ def register_routes(app):
     def not_found(error):
         return jsonify({"error": "Not found"}), 404
     
+    # ===== Friend Event Routes =====
+    @app.route('/api/friends/events', methods=['GET'])
+    @require_auth
+    def get_friend_events(firebase_uid):
+        try:
+            events = Event.get_friend_events(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get friend events: {str(e)}"}), 500
+
+    @app.route('/api/friends/created', methods=['GET'])
+    @require_auth
+    def get_friend_created_events(firebase_uid):
+        try:
+            events = Event.get_friend_created_events(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get friend created events: {str(e)}"}), 500
+
+    @app.route('/api/friends/feed', methods=['GET'])
+    @require_auth
+    def get_friend_feed(firebase_uid):
+        try:
+            events = Event.get_friend_feed(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get friend feed: {str(e)}"}), 500
