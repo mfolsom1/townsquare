@@ -16,10 +16,6 @@ import Profile from "./pages/Profile";
 import SavedEventsPage from "./pages/SavedEventsPage";
 import Following from "./pages/Following"
 
-function Saved() {
-  return <h1>Saved Events Page</h1>;
-}
-
 function App() {
   return (
     <Router>
