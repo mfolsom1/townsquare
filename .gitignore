@@ -43,6 +43,7 @@ yarn-error.log*
 # ==== FIREBASE ====
 .firebase/
 .firebaserc
+config/*
 
 # ==== EXCEPTIONS (Keep) ====
 !.env.example		# Template for environment variables

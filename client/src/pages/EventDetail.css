@@ -1,0 +1,136 @@
+.event-detail-page {
+    background-color: #f9f9f9;
+    padding: 2rem 1rem;
+    min-height: 100vh;
+}
+
+.event-detail-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    padding: 2.5rem;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    color: #007BFF;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.event-hero-image {
+    width: 100%;
+    height: auto;
+    max-height: 400px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+}
+
+.event-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.event-title {
+    font-size: 2.5rem;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.event-category-tag {
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.event-info-grid {
+    display: grid;
+    gap: 1.5rem;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+}
+
+.info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.info-icon {
+    font-size: 1.5rem;
+}
+
+.info-item strong {
+    display: block;
+    color: #333;
+    margin-bottom: 0.25rem;
+}
+
+.info-item p {
+    margin: 0;
+    color: #555;
+    line-height: 1.5;
+}
+
+.map-link {
+    display: block;
+    font-size: 0.85rem;
+    margin-top: 4px;
+}
+
+.event-description h2 {
+    margin-bottom: 1rem;
+}
+
+.event-description p {
+    color: #333;
+    line-height: 1.7;
+    /* This respects the newlines from your database description */
+    white-space: pre-wrap;
+}
+
+/* --- Status/Loading Styles --- */
+.page-status {
+    text-align: center;
+    padding: 4rem;
+    font-size: 1.5rem;
+    color: #555;
+}
+
+.page-status.error {
+    color: #d9534f;
+}
+
+.rsvp-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.rsvp-button {
+    justify-content: center;
+    align-items: center;
+    background-color: #007BFF;
+    color:#eee;
+    font-weight: medium;
+    font-size: 20px;
+    font-family: 'Times New Roman', Times, serif;
+    width: 160px;
+    height: 40px;
+    border-radius: 16px;
+    border-width: 2px;
+}
