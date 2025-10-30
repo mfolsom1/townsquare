@@ -97,6 +97,21 @@ CREATE TABLE UserInterests (
 -- Supporting index for reverse lookups
 CREATE INDEX idx_userinterests_interest_user ON UserInterests (InterestID, UserUID);
 
+-- UserFriendRecommendations table for storing friend recs
+CREATE TABLE UserFriendRecommendations (
+    RecommendationID INT IDENTITY(1,1) PRIMARY KEY,
+    UserUID NVARCHAR(128) NOT NULL,
+    EventID INT NOT NULL,
+    FriendUsername NVARCHAR(50) NOT NULL,
+    FriendStatus NVARCHAR(20) NOT NULL CHECK (FriendStatus IN ('Going', 'Interested')),
+    CreatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
+    CONSTRAINT FK_UserFriendRecs_User FOREIGN KEY (UserUID) REFERENCES Users(FirebaseUID) ON DELETE CASCADE,
+    CONSTRAINT FK_UserFriendRecs_Event FOREIGN KEY (EventID) REFERENCES Events(EventID) ON DELETE CASCADE
+);
+
+-- Index for quick retrieval
+CREATE INDEX idx_userfriendrecs_user ON UserFriendRecommendations (UserUID, CreatedAt DESC);
+
 -- SocialConnections table (follower/following relationships)
 CREATE TABLE SocialConnections (
     FollowerUID NVARCHAR(128) NOT NULL,
