@@ -11,21 +11,24 @@
 }
 /* Fit-to-content filter card */
 .sv-controls.compact {
-  display: inline-flex;   /* shrink to content */
-  width: auto;
+  display: flex;
+  flex-wrap: wrap;
+  width: fit-content;
   max-width: 100%;
-  margin-left: auto;      
-  padding: 10px;         
+  gap: 8px;
+  padding: 10px;
+  box-sizing: border-box;
+  align-items: flex-start;
 }
 
-/* Keep the inner grid only as wide as needed */
+/* Keep the inner grid responsive */
 .sv-controls.compact .sv-row-right {
-  display: grid;
-  width: max-content;           /* don't stretch */
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(150px, 190px);
+  display: flex;
+  flex-wrap: wrap;
+  width: fit-content;
   gap: 8px;
-  justify-content: end;
+  justify-content: flex-start;
+  align-items: flex-start;
 }
 
 .sv-label {
@@ -34,7 +37,12 @@
   font-size: 13px;
   color: var(--muted);
 }
-.sv-controls.compact .sv-label { gap: 4px; font-size: 12.5px; }
+.sv-controls.compact .sv-label { 
+  gap: 4px; 
+  font-size: 12.5px;
+  flex: 0 1 auto;
+  min-width: 90px;
+}
 .sv-input {
   border: 1px solid var(--stroke);
   background: var(--page);
@@ -43,20 +51,33 @@
   padding: 8px 10px;
   font-size: 14px;
   min-width: 0;
+  box-sizing: border-box;
+  width: 100%;
 }
-.sv-controls.compact .sv-input { padding: 6px 10px; font-size: 13px; height: 36px; }
+.sv-controls.compact .sv-input { 
+  padding: 6px 10px; 
+  font-size: 13px; 
+  height: 36px;
+  width: 100%;
+}
 .sv-input:hover { background: var(--chip); }
 .sv-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* Responsive wrap */
 @media (max-width: 900px) {
   .sv-row-right {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    justify-content: stretch;
+    flex-wrap: wrap;
   }
 }
-@media (max-width: 640px) { .sv-row-right { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { 
+  .sv-row-right { 
+    width: 100%;
+  }
+  .sv-controls.compact .sv-label {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+}
 
 /* Card layout & text */
 .event-card-image-wrapper { position: relative; z-index: 0; }
