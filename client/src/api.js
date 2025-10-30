@@ -148,11 +148,30 @@ export async function getAllInterests() {
 //===========================
 
 /**
- * Fetches all events from the backend.
- * @returns {Promise<Array<object>>} A list of all events.
+ * Fetches a list of filtered events or all events from the backend.
+ * @returns {Promise<Array<object>>} A list of events.
  */
 export async function getAllEvents() {
     return apiRequest("/events", { method: "GET" });
+}
+
+export async function getEvents(filters = {}, options = {}) {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([k, v]) => {
+        if (v == null) return;
+        if (Array.isArray(v)) {
+            v.forEach(item => params.append(k, item));
+        } 
+        else {
+            params.append(k, String(v));
+        }
+    });
+
+    const qs = params.toString();
+    const url = `/events${qs ? `?${qs}` : ''}`;
+
+    return apiRequest(url, { method: "GET", ...options });
 }
 
 /**

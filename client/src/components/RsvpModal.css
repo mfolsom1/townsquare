@@ -1,0 +1,76 @@
+.rsvp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.rsvp-modal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  width: 360px;
+  max-width: calc(100% - 40px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  outline: none;
+}
+
+.rsvp-options { display:flex; flex-direction:column; gap:12px; margin: 12px 0; }
+.rsvp-options label { display:flex; gap:12px; align-items:center; font-weight:600; cursor:pointer; padding:8px 10px; border-radius:8px; }
+
+/* Hide native radio but keep it accessible */
+.rsvp-options input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* custom radio visual */
+.rsvp-options .rsvp-label-text::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #bdbdbd;
+  background: white;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* checked state */
+/* checked state is styled via :has() on the label when available */
+
+/* When input is adjacent to text node, the ::before won't find label; instead use sibling selector pattern in markup
+   We'll target the label when its input is checked using :has where supported, and fall back to focus/hover styles */
+/* Prefer to style using adjacent sibling selector when input is followed by the text span */
+.rsvp-options input[type="radio"]:checked + .rsvp-label-text::before {
+  border-color: #007BFF;
+  background: radial-gradient(circle at center, #007BFF 0%, #007BFF 40%, white 41%);
+}
+
+/* Fallback for browsers supporting :has() to style label even if the DOM structure differs */
+@supports(selector(:has(*))) {
+  .rsvp-options label:has(input[type="radio"]:checked) .rsvp-label-text::before {
+    border-color: #007BFF;
+    background: radial-gradient(circle at center, #007BFF 0%, #007BFF 40%, white 41%);
+  }
+}
+
+/* hover/focus styles */
+.rsvp-options label:hover { background: #f5f7ff; }
+.rsvp-options input[type="radio"]:focus + .rsvp-label-text,
+.rsvp-options label:focus-within { box-shadow: 0 0 0 3px rgba(0,123,255,0.12); }
+
+.rsvp-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+.rsvp-cancel { background:transparent; border:1px solid #ccc; padding:8px 12px; border-radius:8px; cursor:pointer; }
+.rsvp-confirm { background:#007BFF; color:white; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
+.rsvp-confirm:disabled, .rsvp-cancel:disabled { opacity:0.6; cursor:not-allowed; }
+
+.rsvp-error { color:#b91c1c; margin-top:8px; }

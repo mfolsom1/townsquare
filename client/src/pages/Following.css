@@ -1,0 +1,24 @@
+.main-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1.5rem; /* Added more horizontal padding */
+}
+
+.page-header {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.page-subheading {
+  font-size: 1.1rem;
+  color: #555;
+  margin-bottom: 2.5rem;
+}
+
+.friends-header {
+  font-size: 2rem;
+}
+
+.orgs-header {
+  font-size: 2rem;
+}

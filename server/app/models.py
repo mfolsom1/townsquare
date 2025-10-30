@@ -487,6 +487,82 @@ class Event:
             conn.close()
     
     @staticmethod
+    def get_events(q=None, page: int = 1, per_page: int = 20, sort_by: str = "StartTime", sort_dir: str = "ASC"):
+            """
+            Simplified search: only supports a free-text query `q` (matches Title/Description/Location)
+            plus pagination and simple sorting. Returns dict { events: [Event,...], total: int }.
+            """
+            clauses = []
+            params = []
+
+            if q:
+                like = f"%{q}%"
+                clauses.append("(Title LIKE ? OR Description LIKE ? OR Location LIKE ?)")
+                params += [like, like, like]
+
+            where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+            # sanitize sort_by and sort_dir
+            sort_dir = "DESC" if str(sort_dir).upper() == "DESC" else "ASC"
+            allowed_sort_cols = {"StartTime", "EndTime", "CreatedAt", "Title"}
+            sort_by = sort_by if sort_by in allowed_sort_cols else "StartTime"
+
+            # pagination
+            try:
+                page = max(1, int(page))
+            except Exception:
+                page = 1
+            try:
+                per_page = max(1, int(per_page))
+            except Exception:
+                per_page = 20
+
+            offset = (page - 1) * per_page
+
+            conn = DatabaseConnection.get_connection()
+            cursor = conn.cursor()
+            try:
+                # total count
+                count_query = f"SELECT COUNT(*) FROM Events {where_sql}"
+                cursor.execute(count_query, params)
+                row = cursor.fetchone()
+                total = int(row[0]) if row else 0
+
+                # fetch paged rows
+                query = f"""
+                    SELECT *
+                    FROM Events
+                    {where_sql}
+                    ORDER BY {sort_by} {sort_dir}
+                    OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+                """
+                exec_params = params + [offset, per_page]
+                cursor.execute(query, exec_params)
+                rows = cursor.fetchall()
+
+                events = [
+                    Event(
+                        event_id=row[0],
+                        organizer_uid=row[1],
+                        title=row[2],
+                        description=row[3],
+                        start_time=row[4],
+                        end_time=row[5],
+                        location=row[6],
+                        category_id=row[7],
+                        max_attendees=row[8],
+                        image_url=row[9],
+                        created_at=row[10],
+                        updated_at=row[11]
+                    )
+                    for row in rows
+                ]
+
+                return {"events": events, "total": total}
+            finally:
+                conn.close()
+    
+    @staticmethod
     def get_all_events():
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()

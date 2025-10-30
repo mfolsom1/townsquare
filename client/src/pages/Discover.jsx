@@ -1,5 +1,4 @@
 // Discover.js: Page for discovering events
-import React from "react";
 import { Link } from "react-router-dom";
 import { useEvents } from "../contexts/EventContext";
 import "./Discover.css";

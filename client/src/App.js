@@ -14,21 +14,13 @@ import { EventProvider } from "./contexts/EventContext";
 import ProfileContainer from "./pages/ProfileContainer";
 import Profile from "./pages/Profile";
 import SavedEventsPage from "./pages/SavedEventsPage";
-
-
-function Following() {
-  return <h1>Following Page</h1>;
-}
-
-function Saved() {
-  return <h1>Saved Events Page</h1>;
-}
+import Following from "./pages/Following"
 
 function App() {
   return (
-    <AuthProvider>
-      <EventProvider>
-        <Router>
+    <Router>
+      <AuthProvider>
+        <EventProvider>
           <Routes>
 
             <Route path="/login" element={<Login />} />
@@ -58,10 +50,9 @@ function App() {
                 }
               />
             </Routes>
-          </Router>
         </EventProvider>
-    </AuthProvider>
-
+      </AuthProvider>
+    </Router>
   );
 }
 

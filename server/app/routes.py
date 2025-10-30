@@ -413,6 +413,42 @@ def register_routes(app):
     @app.route('/events', methods=['GET'])
     def get_events():
         try:
+            # simple pagination + sorting
+            try:
+                page = int(request.args.get('page', 1))
+            except ValueError:
+                page = 1
+            try:
+                per_page = int(request.args.get('per_page', 20))
+            except ValueError:
+                per_page = 20
+
+            sort_by = request.args.get('sort_by', 'StartTime')
+            sort_dir = request.args.get('sort_dir', 'ASC')
+
+            # only accept the free-text 'q' from the search bar
+            q = request.args.get('q')
+
+            result = Event.get_events(q=q, page=page, per_page=per_page, sort_by=sort_by, sort_dir=sort_dir)
+            events = result['events']
+            total = result['total']
+
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events],
+                "pagination": {
+                    "page": page,
+                    "per_page": per_page,
+                    "total": total,
+                    "pages": (total + per_page - 1) // per_page if per_page else 0
+                }
+            }), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route('/events', methods=['GET'])
+    def get_all_events():
+        try:
             events = Event.get_all_events()
             # Returns a 200 OK with an empty list if no events are found, which is more conventional.
             return jsonify({
