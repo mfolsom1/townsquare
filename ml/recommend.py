@@ -11,21 +11,26 @@ from .utils import (DatabaseConnector, VectorStore, EmbeddingGenerator,
 
 logger = logging.getLogger(__name__)
 
-# TODO: event cache refresh
-
 
 class RecommendationEngine:
     """Primary rec engine class"""
 
-    def __init__(self, load_vectors_on_init: bool = True):
+    def __init__(self, load_vectors_on_init: bool = True, db_connector: Optional[DatabaseConnector] = None):
         # Init helpers
-        self.db_connector = DatabaseConnector()
+        # Allow a caller to inject a db_connector to avoid creating multiple
+        # independent connectors during tests (each one loads fixtures)
+        if db_connector is None:
+            self.db_connector = DatabaseConnector()
+        else:
+            self.db_connector = db_connector
         self.vector_store = VectorStore()
         self.embedding_generator = EmbeddingGenerator()
         self.preprocessor = TextPreprocessor()
 
         self.event_index = None
         self.event_ids = None
+        # Mapping for quicker id -> index lookups
+        self._event_id_to_index = {}
 
         # Load vectors on initialization
         self._vectors_loaded = False
@@ -56,28 +61,48 @@ class RecommendationEngine:
             version_path = Path("model_artifacts/cache_version.json")
             if version_path.exists():
                 with open(version_path, 'r') as f:
-                    current_version = json.load(f)
-                # Initialize _cache_version if it doesn't exist, or compare
-                if not hasattr(self, '_cache_version') or self._cache_version != current_version['version']:
-                    logger.info("Cache version changed, reloading vectors")
-                    self._cache_version = current_version['version']
+                    try:
+                        current_version = json.load(f)
+                    except Exception:
+                        logger.warning(
+                            "Could not parse cache_version.json; reloading vectors")
+                        current_version = {}
+
+                # Initialize _cache_version if it doesn't exist, or compare safely
+                current_ver_val = current_version.get(
+                    'version') if isinstance(current_version, dict) else None
+                if current_ver_val is not None:
+                    if not hasattr(self, '_cache_version') or self._cache_version != current_ver_val:
+                        logger.info("Cache version changed, reloading vectors")
+                        self._cache_version = current_ver_val
+                    else:
+                        logger.info("Cache is up to date, skipping reload")
+                        return
                 else:
-                    logger.info("Cache is up to date, skipping reload")
-                    return
+                    logger.info(
+                        "No valid version found in cache_version.json; forcing reload")
 
             self.event_index, self.event_ids = self.vector_store.load_vectors(
                 "events")
-
-            if self.event_index:
-                logger.info(f"Loaded {len(self.event_ids)} event vectors")
+            if self.event_index and self.event_ids:
+                logger.info(
+                    f"Loaded {len(self.event_ids)} event vectors provided by vector store (from utils)")
+                # Build id->index mapping for O(1) lookups
+                try:
+                    self._event_id_to_index = {
+                        eid: idx for idx, eid in enumerate(self.event_ids)}
+                except Exception:
+                    self._event_id_to_index = {}
+                self._vectors_loaded = True
             else:
-                logger.warning("No event vectors found")
-
-            self._vectors_loaded = True
+                self._vectors_loaded = False
+                self._event_id_to_index = {}
+                logger.warning(
+                    "No event vectors found in vector store; _vectors_loaded remains False")
 
             # Clear event cache to force refresh
             if hasattr(self, '_event_cache'):
-                delattr(self, '_event_cache')
+                del self._event_cache
 
         except Exception as e:
             logger.error(f"Error loading vectors: {e}")
@@ -128,8 +153,8 @@ class RecommendationEngine:
             rsvp_time = self._parse_event_time(rsvp.get('CreatedAt'))
             if rsvp_time and rsvp_time > recent_cutoff:
                 event_id = rsvp['EventID']
-                if event_id in self.event_ids:
-                    event_idx = self.event_ids.index(event_id)
+                if event_id in self._event_id_to_index:
+                    event_idx = self._event_id_to_index[event_id]
                     embedding = self.event_index.reconstruct(event_idx)
                     weight = get_interaction_weight(rsvp['Status'])
                     event_embeddings.append(embedding)
@@ -141,8 +166,8 @@ class RecommendationEngine:
             if activity_time and activity_time > recent_cutoff:
                 if activity['ActivityType'] == 'viewed_event_details':
                     event_id = activity['TargetID']
-                    if event_id in self.event_ids:
-                        event_idx = self.event_ids.index(event_id)
+                    if event_id in self._event_id_to_index:
+                        event_idx = self._event_id_to_index[event_id]
                         embedding = self.event_index.reconstruct(event_idx)
                         weight = get_interaction_weight(
                             activity['ActivityType'])
@@ -174,7 +199,7 @@ class RecommendationEngine:
             return self.get_fallback_recommendations(top_k, filters)
 
         logger.info(
-            f"Generating {recommendation_strategy} recommendations for user {user_uid}")
+            f"Generating {recommendation_strategy} recommendations for user {user_uid} (requested top_k={top_k})")
 
         try:
             if recommendation_strategy == "friends_only":
@@ -191,7 +216,7 @@ class RecommendationEngine:
                 logger.warning("No event vectors available")
                 return self.get_fallback_recommendations(top_k, filters)
 
-            # Search for similar events
+            # Search for similar events (content-based nearest neighbors by cosine similarity)
             similarities, indices = self.vector_store.search_similar(
                 user_vector, self.event_index, top_k * 3
             )
@@ -209,6 +234,7 @@ class RecommendationEngine:
                         recommendations.append({
                             **event_details,
                             'similarity_score': score,
+                            'base_similarity': score,
                             'event_id': event_id,
                             'source': 'content_based'
                         })
@@ -228,7 +254,7 @@ class RecommendationEngine:
             final_recommendations = recommendations[:top_k]
 
             logger.info(
-                f"Generated {len(final_recommendations)} recommendations for user {user_uid}")
+                f"Generated {len(final_recommendations)} recommendations (requested top_k={top_k}) for user {user_uid}")
             return final_recommendations
 
         except Exception as e:
@@ -333,17 +359,28 @@ class RecommendationEngine:
                 boost_multiplier * (1 + 0.1 * friend_count)
 
             if event_id in rec_map:
-                rec_map[event_id]['similarity_score'] *= friend_boost
+                # Compute final score from stored base_similarity
+                base = rec_map[event_id].get(
+                    'base_similarity', rec_map[event_id].get('similarity_score', 0.0))
+                try:
+                    final_score = base * friend_boost
+                except Exception:
+                    final_score = rec_map[event_id].get(
+                        'similarity_score', 0.0)
+                rec_map[event_id]['similarity_score'] = final_score
+                rec_map[event_id]['base_similarity'] = base
                 rec_map[event_id]['friend_boost'] = friend_boost
                 rec_map[event_id]['friend_username'] = friend_event['FriendUsername']
                 rec_map[event_id]['friend_status'] = friend_event['FriendStatus']
             else:
                 event_details = self.get_event_details(event_id)
                 if event_details:
+                    base_similarity = 0.3
                     recommendations.append({
                         **event_details,
                         'event_id': event_id,
-                        'similarity_score': 0.3 * friend_boost,
+                        'base_similarity': base_similarity,
+                        'similarity_score': base_similarity * friend_boost,
                         'friend_boost': friend_boost,
                         'friend_username': friend_event['FriendUsername'],
                         'friend_status': friend_event['FriendStatus'],
@@ -419,15 +456,22 @@ class RecommendationEngine:
         """Force refresh all caches"""
         logger.info("Refreshing recommendation caches")
         if hasattr(self, '_event_cache'):
-            delattr(self, '_event_cache')
+            del self._event_cache
         self.load_vectors()  # TODO: might be problematic
 
 
 class RecommendationAPI:
     """API layer for recommendations"""
 
-    def __init__(self):
-        self.engine = RecommendationEngine()
+    def __init__(self, engine: Optional[RecommendationEngine] = None):
+        # Allow injecting an existing engine to avoid double-initialization
+        # (constructing RecommendationEngine here triggers vector loads and
+        # fixture access)
+        # Tests should pass an engine instance when they already created one
+        if engine is None:
+            self.engine = RecommendationEngine()
+        else:
+            self.engine = engine
 
     def get_recommendations(self, user_uid: str, top_k: int = 10,
                             filters: Optional[Dict[str, Any]] = None,
