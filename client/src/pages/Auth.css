@@ -63,6 +63,8 @@
   margin:12px 0; 
   font-weight:600; 
   color: var(--text-color);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .auth-card input { 
@@ -73,6 +75,8 @@
   background: var(--input-bg);
   color: var(--text-color);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .auth-card input:focus {

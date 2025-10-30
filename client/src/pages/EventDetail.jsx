@@ -12,9 +12,13 @@ import "./EventDetail.css";
 
 // Re-using the same helpers from the Discover page for consistency
 const categoryDetails = {
-  1: { name: "Tech", color: "#007BFF" },
-  2: { name: "Music", color: "#E83E8C" },
-  // ... add all other categories
+  1: { name: "Gator Sports", color: "#FA4616" },
+  2: { name: "UF Campus Life", color: "#0021A5" },
+  3: { name: "Local Music & Arts", color: "#FFC300" },
+  4: { name: "Outdoor & Nature", color: "#1A9956" },
+  5: { name: "Food & Breweries", color: "#900C3F" },
+  6: { name: "Community & Markets", color: "#581845" },
+  7: { name: "Tech & Innovation", color: "#2A6E99" },
   default: { name: "General", color: "#6C757D" },
 };
 

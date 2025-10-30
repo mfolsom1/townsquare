@@ -16,10 +16,10 @@
     display:grid; gap:12px; padding:16px 18px 18px; 
     overflow-y: auto; flex: 1;
   }
-  .cem-form label { display:grid; gap:6px; font-size:14px; font-weight: 500; }
+  .cem-form label { display:grid; gap:6px; font-size:14px; font-weight: 500; width: 100%; box-sizing: border-box; }
   .cem-form input, .cem-form textarea, .cem-form select {
     padding:10px 12px; border:1px solid #ddd; border-radius:10px; font-size:14px;
-    transition: border-color 0.2s ease;
+    transition: border-color 0.2s ease; width: 100%; box-sizing: border-box;
   }
   .cem-form input:focus, .cem-form textarea:focus, .cem-form select:focus {
     outline: none; border-color: #1f6feb; box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.1);
