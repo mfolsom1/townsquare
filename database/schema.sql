@@ -10,6 +10,8 @@ CREATE TABLE Users (
     LastName NVARCHAR(100),
     Location NVARCHAR(200) NOT NULL,
     Bio NVARCHAR(1000),
+    UserType NVARCHAR(20) NOT NULL DEFAULT 'individual' CHECK (UserType IN ('individual', 'organization')),
+    OrganizationName NVARCHAR(200),
     CreatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
     UpdatedAt DATETIME2 DEFAULT GETDATE() NOT NULL
 );
