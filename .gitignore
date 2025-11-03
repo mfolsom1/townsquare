@@ -35,6 +35,8 @@ yarn-error.log*
 *.pkl
 *.joblib
 /data/
+ml/model_artifacts_test/*.json
+ml/vector_store/*.json
 
 # ==== IDE/EDITOR CONFIG ====
 .vscode/
