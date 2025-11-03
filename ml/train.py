@@ -1,10 +1,13 @@
 # train.py: Implementation of model training
 import numpy as np
+import os
 import logging
-from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
+import json
+import time
 import pickle
 from pathlib import Path
+from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime, timedelta
 
 from .utils import (
     DatabaseConnector,
@@ -21,15 +24,20 @@ logger = logging.getLogger(__name__)
 class ModelTrainer:
     """Model training pipeline for EVENT recommendations using content + similar user signals"""
 
-    def __init__(self, storage_path: str = "model_artifacts"):
-        self.db_connector = DatabaseConnector()
+    def __init__(self, storage_path: str = "model_artifacts", db_connector: Optional[DatabaseConnector] = None):
+        # Allow injecting a db_connector (for tests) to reuse the
+        # MockDatabaseConnector and avoid multiple fixture loads
+        if db_connector is None:
+            self.db_connector = DatabaseConnector()
+        else:
+            self.db_connector = db_connector
         self.embedding_generator = EmbeddingGenerator()
         self.vector_store = VectorStore()
         self.text_preprocessor = TextPreprocessor()
         self.data_validator = DataValidator()
 
         self.storage_path = Path(storage_path)
-        self.storage_path.mkdir(exist_ok=True)
+        self.storage_path.mkdir(parents=True, exist_ok=True)
 
         # Training configuration
         self.config = {
@@ -79,6 +87,28 @@ class ModelTrainer:
 
             # Save event metadata for quick access
             self._save_event_metadata(valid_events)
+
+            # Cache marker
+            version_info = {
+                'version': int(time.time()),
+                'event_count': len(event_ids),
+                'created_at': datetime.now().isoformat()
+            }
+            version_path = self.storage_path / "cache_version.json"
+            # Write version info atomically to avoid partial files
+            try:
+                tmp_version = version_path.with_suffix('.json.tmp')
+                with open(tmp_version, 'w', encoding='utf8') as f:
+                    json.dump(version_info, f)
+                os.replace(str(tmp_version), str(version_path))
+            except Exception as e:
+                logger.error(
+                    f"Error writing cache version file {version_path}: {e}")
+                try:
+                    if tmp_version.exists():
+                        tmp_version.unlink()
+                except Exception:
+                    pass
 
             logger.info(
                 f"Successfully generated embeddings for {len(event_ids)} events"
@@ -380,10 +410,26 @@ class ModelTrainer:
                 for event in events
             }
 
-            with open(metadata_path, "wb") as f:
-                pickle.dump(metadata, f)
-
-            logger.info(f"Saved metadata for {len(metadata)} events")
+            # Write to tmp file and replace
+            tmp_meta = metadata_path.with_suffix('.pkl.tmp')
+            try:
+                with open(tmp_meta, "wb") as f:
+                    pickle.dump(metadata, f)
+                    f.flush()
+                    try:
+                        os.fsync(f.fileno())
+                    except Exception:
+                        # os.fsync may not be available on all platforms/filesystems
+                        pass
+                os.replace(str(tmp_meta), str(metadata_path))
+                logger.info(f"Saved metadata for {len(metadata)} events")
+            except Exception as e:
+                logger.error(f"Error writing event metadata atomically: {e}")
+                try:
+                    if tmp_meta.exists():
+                        tmp_meta.unlink()
+                except Exception:
+                    pass
         except Exception as e:
             logger.error(f"Error saving event metadata: {e}")
 

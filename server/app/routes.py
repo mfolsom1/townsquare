@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask import Flask, jsonify, request
-from .models import Event
+from .models import Event, RSVP
 from firebase_admin import auth
 from .models import User
 from .auth_utils import require_auth
@@ -275,9 +275,215 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": f"Failed to get interests: {str(e)}"}), 500
 
+    # ===== Social Connection functions ===== #
+
+    @app.route('/api/social/follow', methods=['POST'])
+    @require_auth
+    def follow_user(firebase_uid):
+        """Follow another user"""
+        try:
+            data = request.json or {}
+            target_username = data.get('username')
+            target_uid = data.get('firebase_uid')
+
+            # Must provide either username or firebase_uid
+            if not target_username and not target_uid:
+                return jsonify({"error": "Either username or firebase_uid is required"}), 400
+
+            # If both are provided, cross-validate
+            if target_username and target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                if target_user.firebase_uid != target_uid:
+                    return jsonify({"error": "Provided username and firebase_uid do not match"}), 400
+                # Use the firebase_uid from the username to ensure consistency
+                target_uid = target_user.firebase_uid
+            # If only username is provided
+            elif target_username and not target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                target_uid = target_user.firebase_uid
+
+            # Follow the user
+            success = User.follow_user(firebase_uid, target_uid)
+
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "User followed successfully"
+                })
+            else:
+                return jsonify({"error": "Already following this user"}), 409
+
+        except ValueError as ve:
+            return jsonify({"error": str(ve)}), 400
+        except Exception as e:
+            return jsonify({"error": f"Failed to follow user: {str(e)}"}), 500
+
+    @app.route('/api/social/unfollow', methods=['POST'])
+    @require_auth
+    def unfollow_user(firebase_uid):
+        """Unfollow a user"""
+        try:
+            data = request.json or {}
+            target_username = data.get('username')
+            target_uid = data.get('firebase_uid')
+
+            # Must provide either username or firebase_uid
+            if not target_username and not target_uid:
+                return jsonify({"error": "Either username or firebase_uid is required"}), 400
+
+            # If both are provided, ensure they refer to the same user
+            if target_username and target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                if target_user.firebase_uid != target_uid:
+                    return jsonify({"error": "Provided username and firebase_uid do not match"}), 400
+                # Use the firebase_uid from the username to ensure consistency
+                target_uid = target_user.firebase_uid
+            # If only username is provided, get the firebase_uid
+            elif target_username and not target_uid:
+                target_user = User.get_user_by_username(target_username)
+                if not target_user:
+                    return jsonify({"error": "User not found"}), 404
+                target_uid = target_user.firebase_uid
+
+            # Unfollow the user
+            success = User.unfollow_user(firebase_uid, target_uid)
+
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "User unfollowed successfully"
+                })
+            else:
+                return jsonify({"error": "Not following this user"}), 404
+
+        except Exception as e:
+            return jsonify({"error": f"Failed to unfollow user: {str(e)}"}), 500
+
+    @app.route('/api/social/following', methods=['GET'])
+    @require_auth
+    def get_following(firebase_uid):
+        """Get list of users that the current user is following"""
+        try:
+            following = User.get_following(firebase_uid)
+            return jsonify({
+                "success": True,
+                "following": following,
+                "count": len(following)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get following list: {str(e)}"}), 500
+
+    @app.route('/api/social/followers', methods=['GET'])
+    @require_auth
+    def get_followers(firebase_uid):
+        """Get list of users that are following the current user"""
+        try:
+            followers = User.get_followers(firebase_uid)
+            return jsonify({
+                "success": True,
+                "followers": followers,
+                "count": len(followers)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get followers list: {str(e)}"}), 500
+
+    @app.route('/api/social/following/<target_uid>', methods=['GET'])
+    @require_auth
+    def check_following_status(firebase_uid, target_uid):
+        """Check if current user is following the target user"""
+        try:
+            is_following = User.is_following(firebase_uid, target_uid)
+            return jsonify({
+                "success": True,
+                "is_following": is_following
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to check following status: {str(e)}"}), 500
+
+    @app.route('/api/social/user/<username>/following', methods=['GET'])
+    def get_user_following_by_username(username):
+        """Get list of users that a specific user is following (public endpoint)"""
+        try:
+            # Get user by username
+            user = User.get_user_by_username(username)
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            following = User.get_following(user.firebase_uid)
+            return jsonify({
+                "success": True,
+                "username": username,
+                "following": following,
+                "count": len(following)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get following list: {str(e)}"}), 500
+
+    @app.route('/api/social/user/<username>/followers', methods=['GET'])
+    def get_user_followers_by_username(username):
+        """Get list of users that are following a specific user (public endpoint)"""
+        try:
+            # Get user by username
+            user = User.get_user_by_username(username)
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            followers = User.get_followers(user.firebase_uid)
+            return jsonify({
+                "success": True,
+                "username": username,
+                "followers": followers,
+                "count": len(followers)
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get followers list: {str(e)}"}), 500
+
     # ===== Event functions ===== #
     @app.route('/events', methods=['GET'])
     def get_events():
+        try:
+            # simple pagination + sorting
+            try:
+                page = int(request.args.get('page', 1))
+            except ValueError:
+                page = 1
+            try:
+                per_page = int(request.args.get('per_page', 20))
+            except ValueError:
+                per_page = 20
+
+            sort_by = request.args.get('sort_by', 'StartTime')
+            sort_dir = request.args.get('sort_dir', 'ASC')
+
+            # only accept the free-text 'q' from the search bar
+            q = request.args.get('q')
+
+            result = Event.get_events(
+                q=q, page=page, per_page=per_page, sort_by=sort_by, sort_dir=sort_dir)
+            events = result['events']
+            total = result['total']
+
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events],
+                "pagination": {
+                    "page": page,
+                    "per_page": per_page,
+                    "total": total,
+                    "pages": (total + per_page - 1) // per_page if per_page else 0
+                }
+            }), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/events', methods=['GET'])
+    def get_all_events():
         try:
             events = Event.get_all_events()
             # Returns a 200 OK with an empty list if no events are found, which is more conventional.
@@ -287,6 +493,89 @@ def register_routes(app):
             })
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/user/events/organized', methods=['GET'])
+    @require_auth
+    def get_user_organized_events(firebase_uid):
+        """Get events organized by the current user"""
+        try:
+            events = Event.get_events_by_organizer(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get organized events: {str(e)}"}), 500
+
+    @app.route('/api/user/events/attending', methods=['GET'])
+    @require_auth
+    def get_user_attending_events(firebase_uid):
+        """Get events the current user is attending"""
+        try:
+            events = Event.get_events_by_attendee(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get attending events: {str(e)}"}), 500
+
+    # ===== RSVP functions ===== #
+    @app.route('/api/events/<int:event_id>/rsvp', methods=['POST'])
+    @require_auth
+    def create_or_update_rsvp(firebase_uid, event_id):
+        """Create or update an RSVP for an event"""
+        try:
+            data = request.json or {}
+            status = data.get('status', 'Going')
+
+            # Validate status
+            valid_statuses = ['Going', 'Interested', 'Not Going']
+            if status not in valid_statuses:
+                return jsonify({"error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}), 400
+
+            # Check if event exists
+            event = Event.get_event_by_id(event_id)
+            if not event:
+                return jsonify({"error": "Event not found"}), 404
+
+            rsvp = RSVP.create_or_update_rsvp(firebase_uid, event_id, status)
+            return jsonify({
+                "success": True,
+                "message": "RSVP updated successfully",
+                "rsvp": rsvp.to_dict()
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to update RSVP: {str(e)}"}), 500
+
+    @app.route('/api/events/<int:event_id>/rsvp', methods=['DELETE'])
+    @require_auth
+    def delete_rsvp(firebase_uid, event_id):
+        """Delete an RSVP for an event"""
+        try:
+            success = RSVP.delete_rsvp(firebase_uid, event_id)
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "RSVP deleted successfully"
+                })
+            else:
+                return jsonify({"error": "RSVP not found"}), 404
+        except Exception as e:
+            return jsonify({"error": f"Failed to delete RSVP: {str(e)}"}), 500
+
+    @app.route('/api/user/rsvps', methods=['GET'])
+    @require_auth
+    def get_user_rsvps(firebase_uid):
+        """Get all RSVPs for the current user"""
+        try:
+            rsvps = RSVP.get_user_rsvps(firebase_uid)
+            return jsonify({
+                "success": True,
+                "rsvps": [rsvp.to_dict() for rsvp in rsvps]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get RSVPs: {str(e)}"}), 500
 
     @app.route('/events/<int:event_id>', methods=['GET'])
     def get_event_by_id(event_id):
@@ -421,3 +710,40 @@ def register_routes(app):
     @app.errorhandler(404)
     def not_found(error):
         return jsonify({"error": "Not found"}), 404
+
+    # ===== Friend Event Routes =====
+    @app.route('/api/friends/events', methods=['GET'])
+    @require_auth
+    def get_friend_events(firebase_uid):
+        try:
+            events = Event.get_friend_events(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get friend events: {str(e)}"}), 500
+
+    @app.route('/api/friends/created', methods=['GET'])
+    @require_auth
+    def get_friend_created_events(firebase_uid):
+        try:
+            events = Event.get_friend_created_events(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get friend created events: {str(e)}"}), 500
+
+    @app.route('/api/friends/feed', methods=['GET'])
+    @require_auth
+    def get_friend_feed(firebase_uid):
+        try:
+            events = Event.get_friend_feed(firebase_uid)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get friend feed: {str(e)}"}), 500

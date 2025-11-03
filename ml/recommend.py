@@ -1,6 +1,9 @@
 # recommend.py: Load model and generate recommendations
 import numpy as np
 import logging
+import json
+import pickle
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from .utils import (DatabaseConnector, VectorStore, EmbeddingGenerator,
@@ -12,29 +15,94 @@ logger = logging.getLogger(__name__)
 class RecommendationEngine:
     """Primary rec engine class"""
 
-    def __init__(self):
+    def __init__(self, load_vectors_on_init: bool = True, db_connector: Optional[DatabaseConnector] = None):
         # Init helpers
-        self.db_connector = DatabaseConnector()
+        # Allow a caller to inject a db_connector to avoid creating multiple
+        # independent connectors during tests (each one loads fixtures)
+        if db_connector is None:
+            self.db_connector = DatabaseConnector()
+        else:
+            self.db_connector = db_connector
         self.vector_store = VectorStore()
         self.embedding_generator = EmbeddingGenerator()
         self.preprocessor = TextPreprocessor()
 
         self.event_index = None
         self.event_ids = None
+        # Mapping for quicker id -> index lookups
+        self._event_id_to_index = {}
 
         # Load vectors on initialization
-        self.load_vectors()
+        self._vectors_loaded = False
+        if load_vectors_on_init:
+            self.load_vectors()
+
+    def are_vectors_loaded(self) -> bool:
+        return self._vectors_loaded and self.event_index is not None
+
+    def _parse_event_time(self, event_time: Any) -> Optional[datetime]:
+        """Centralized event time parsing"""
+        if event_time is None:
+            return None
+        if isinstance(event_time, datetime):
+            return event_time
+        try:
+            if isinstance(event_time, str):
+                # Handle ISO format with timezone
+                return datetime.fromisoformat(event_time.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            logger.warning(f"Could not parse event time: {event_time}")
+        return None
 
     def load_vectors(self):
         # Load pre-computed vectors into memory
         try:
+            # Check if cache needs refresh
+            version_path = Path("model_artifacts/cache_version.json")
+            if version_path.exists():
+                with open(version_path, 'r') as f:
+                    try:
+                        current_version = json.load(f)
+                    except Exception:
+                        logger.warning(
+                            "Could not parse cache_version.json; reloading vectors")
+                        current_version = {}
+
+                # Initialize _cache_version if it doesn't exist, or compare safely
+                current_ver_val = current_version.get(
+                    'version') if isinstance(current_version, dict) else None
+                if current_ver_val is not None:
+                    if not hasattr(self, '_cache_version') or self._cache_version != current_ver_val:
+                        logger.info("Cache version changed, reloading vectors")
+                        self._cache_version = current_ver_val
+                    else:
+                        logger.info("Cache is up to date, skipping reload")
+                        return
+                else:
+                    logger.info(
+                        "No valid version found in cache_version.json; forcing reload")
+
             self.event_index, self.event_ids = self.vector_store.load_vectors(
                 "events")
-
-            if self.event_index:
-                logger.info(f"Loaded {len(self.event_ids)} event vectors")
+            if self.event_index and self.event_ids:
+                logger.info(
+                    f"Loaded {len(self.event_ids)} event vectors provided by vector store (from utils)")
+                # Build id->index mapping for O(1) lookups
+                try:
+                    self._event_id_to_index = {
+                        eid: idx for idx, eid in enumerate(self.event_ids)}
+                except Exception:
+                    self._event_id_to_index = {}
+                self._vectors_loaded = True
             else:
-                logger.warning("No event vectors found")
+                self._vectors_loaded = False
+                self._event_id_to_index = {}
+                logger.warning(
+                    "No event vectors found in vector store; _vectors_loaded remains False")
+
+            # Clear event cache to force refresh
+            if hasattr(self, '_event_cache'):
+                del self._event_cache
 
         except Exception as e:
             logger.error(f"Error loading vectors: {e}")
@@ -82,10 +150,11 @@ class RecommendationEngine:
         # Process recent RSVPs (TODO: last 30 days(?))
         recent_cutoff = datetime.now() - timedelta(days=30)
         for rsvp in rsvps:
-            if rsvp['CreatedAt'] and rsvp['CreatedAt'] > recent_cutoff:
+            rsvp_time = self._parse_event_time(rsvp.get('CreatedAt'))
+            if rsvp_time and rsvp_time > recent_cutoff:
                 event_id = rsvp['EventID']
-                if event_id in self.event_ids:
-                    event_idx = self.event_ids.index(event_id)
+                if event_id in self._event_id_to_index:
+                    event_idx = self._event_id_to_index[event_id]
                     embedding = self.event_index.reconstruct(event_idx)
                     weight = get_interaction_weight(rsvp['Status'])
                     event_embeddings.append(embedding)
@@ -93,11 +162,12 @@ class RecommendationEngine:
 
         # Process recent activities (TODO: clicking, viewing for x amount of time, sharing, saving)
         for activity in activities:
-            if activity['CreatedAt'] and activity['CreatedAt'] > recent_cutoff:
+            activity_time = self._parse_event_time(activity.get('CreatedAt'))
+            if activity_time and activity_time > recent_cutoff:
                 if activity['ActivityType'] == 'viewed_event_details':
                     event_id = activity['TargetID']
-                    if event_id in self.event_ids:
-                        event_idx = self.event_ids.index(event_id)
+                    if event_id in self._event_id_to_index:
+                        event_idx = self._event_id_to_index[event_id]
                         embedding = self.event_index.reconstruct(event_idx)
                         weight = get_interaction_weight(
                             activity['ActivityType'])
@@ -124,8 +194,12 @@ class RecommendationEngine:
                          recommendation_strategy: str = "hybrid") -> List[Dict[str, Any]]:
         """Unified recommendation function with strategy options"""
 
+        if not self.are_vectors_loaded():
+            logger.warning("Vectors not loaded, using fallback")
+            return self.get_fallback_recommendations(top_k, filters)
+
         logger.info(
-            f"Generating {recommendation_strategy} recommendations for user {user_uid}")
+            f"Generating {recommendation_strategy} recommendations for user {user_uid} (requested top_k={top_k})")
 
         try:
             if recommendation_strategy == "friends_only":
@@ -142,7 +216,7 @@ class RecommendationEngine:
                 logger.warning("No event vectors available")
                 return self.get_fallback_recommendations(top_k, filters)
 
-            # Search for similar events
+            # Search for similar events (content-based nearest neighbors by cosine similarity)
             similarities, indices = self.vector_store.search_similar(
                 user_vector, self.event_index, top_k * 3
             )
@@ -160,6 +234,7 @@ class RecommendationEngine:
                         recommendations.append({
                             **event_details,
                             'similarity_score': score,
+                            'base_similarity': score,
                             'event_id': event_id,
                             'source': 'content_based'
                         })
@@ -179,7 +254,7 @@ class RecommendationEngine:
             final_recommendations = recommendations[:top_k]
 
             logger.info(
-                f"Generated {len(final_recommendations)} recommendations for user {user_uid}")
+                f"Generated {len(final_recommendations)} recommendations (requested top_k={top_k}) for user {user_uid}")
             return final_recommendations
 
         except Exception as e:
@@ -188,11 +263,25 @@ class RecommendationEngine:
             return self.get_fallback_recommendations(top_k, filters)
 
     def get_event_details(self, event_id: int) -> Optional[Dict[str, Any]]:
-        # Pull event details from database
-        events = self.db_connector.fetch_events()
-        for event in events:
-            if event['EventID'] == event_id:
-                return event
+        # Pull single event details from database
+        try:
+            # Try to load from ModelTrainer's metadata first
+            metadata_path = Path("model_artifacts/event_metadata.pkl")
+            if metadata_path.exists():
+                with open(metadata_path, 'rb') as f:
+                    event_metadata = pickle.load(f)
+                    if event_id in event_metadata:
+                        return event_metadata[event_id]
+            # Otherwise build separate cache
+            if not hasattr(self, '_event_cache') or not self._event_cache:
+                events = self.db_connector.fetch_events()
+                self._event_cache = {
+                    event['EventID']: event for event in events}
+                logger.info(
+                    f"Initialized event cache with {len(events)} events")
+            return self._event_cache.get(event_id)
+        except Exception as e:
+            logger.error(f"Error getting event {event_id}: {e}")
         return None
 
     def apply_filters(self, events: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -221,31 +310,17 @@ class RecommendationEngine:
     def _within_date_range(self, event: Dict[str, Any], start_date: datetime,
                            end_date: datetime) -> bool:
         # Check if event is within date range
-        event_time = event.get('StartTime')
+        event_time = self._parse_event_time(event.get('StartTime'))
         if not event_time:
             return True
-
-        if isinstance(event_time, str):
-            try:
-                event_time = datetime.fromisoformat(
-                    event_time.replace('Z', '+00:00'))
-            except:
-                return True
 
         return start_date <= event_time <= end_date
 
     def apply_recency_boost(self, event: Dict[str, Any], base_score: float) -> float:
         # Boost score for events happening soon
-        event_time = event.get('StartTime')
+        event_time = self._parse_event_time(event.get('StartTime'))
         if not event_time:
             return base_score
-
-        if isinstance(event_time, str):
-            try:
-                event_time = datetime.fromisoformat(
-                    event_time.replace('Z', '+00:00'))
-            except:
-                return base_score
 
         days_until_event = (event_time - datetime.now()).days
 
@@ -284,17 +359,28 @@ class RecommendationEngine:
                 boost_multiplier * (1 + 0.1 * friend_count)
 
             if event_id in rec_map:
-                rec_map[event_id]['similarity_score'] *= friend_boost
+                # Compute final score from stored base_similarity
+                base = rec_map[event_id].get(
+                    'base_similarity', rec_map[event_id].get('similarity_score', 0.0))
+                try:
+                    final_score = base * friend_boost
+                except Exception:
+                    final_score = rec_map[event_id].get(
+                        'similarity_score', 0.0)
+                rec_map[event_id]['similarity_score'] = final_score
+                rec_map[event_id]['base_similarity'] = base
                 rec_map[event_id]['friend_boost'] = friend_boost
                 rec_map[event_id]['friend_username'] = friend_event['FriendUsername']
                 rec_map[event_id]['friend_status'] = friend_event['FriendStatus']
             else:
                 event_details = self.get_event_details(event_id)
                 if event_details:
+                    base_similarity = 0.3
                     recommendations.append({
                         **event_details,
                         'event_id': event_id,
-                        'similarity_score': 0.3 * friend_boost,
+                        'base_similarity': base_similarity,
+                        'similarity_score': base_similarity * friend_boost,
                         'friend_boost': friend_boost,
                         'friend_username': friend_event['FriendUsername'],
                         'friend_status': friend_event['FriendStatus'],
@@ -366,16 +452,41 @@ class RecommendationEngine:
         logger.info("Refreshing recommendation models")
         self.load_vectors()
 
+    def refresh_cache(self):
+        """Force refresh all caches"""
+        logger.info("Refreshing recommendation caches")
+        if hasattr(self, '_event_cache'):
+            del self._event_cache
+        self.load_vectors()  # TODO: might be problematic
+
 
 class RecommendationAPI:
     """API layer for recommendations"""
 
-    def __init__(self):
-        self.engine = RecommendationEngine()
+    def __init__(self, engine: Optional[RecommendationEngine] = None):
+        # Allow injecting an existing engine to avoid double-initialization
+        # (constructing RecommendationEngine here triggers vector loads and
+        # fixture access)
+        # Tests should pass an engine instance when they already created one
+        if engine is None:
+            self.engine = RecommendationEngine()
+        else:
+            self.engine = engine
 
     def get_recommendations(self, user_uid: str, top_k: int = 10,
                             filters: Optional[Dict[str, Any]] = None,
                             recommendation_strategy: str = "hybrid") -> Dict[str, Any]:
+        # Validate input
+        if not user_uid or not isinstance(user_uid, str):
+            return {"error": "Invalid user_uid", "recommendations": []}
+
+        if top_k <= 0 or top_k > 100:  # Limit recs to 10
+            top_k = 10
+
+        valid_strategies = ["hybrid", "friends_only", "friends_boosted"]
+        if recommendation_strategy not in valid_strategies:
+            recommendation_strategy = "hybrid"
+
         recommendations = self.engine.recommend_events(
             user_uid, top_k, filters, recommendation_strategy
         )

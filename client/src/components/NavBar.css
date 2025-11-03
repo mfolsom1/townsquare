@@ -1,8 +1,11 @@
 /* layout */
 .ts-nav {
     position: sticky; top: 0;
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    /* display: grid;
+    grid-template-columns: 1fr auto 1fr; */
+    display: flex;
+    justify-content: space-between;
+    z-index: 1000;
     align-items: center;
     padding: 10px 20px;
     background: #fff;
@@ -11,7 +14,7 @@
   
   /* left */
   .ts-brand {
-    font-size: 20px;
+    font-size: 24px;
     font-weight: 600;
     color: #222;
     text-decoration: none;
@@ -26,10 +29,10 @@
   }
   .ts-tab {
     position: relative;
-    font-size: 13px;
+    font-size: 16px;
     color: #222;
     text-decoration: none;
-    padding-bottom: 6px;
+    /* padding-bottom: 6px; */
     opacity: 0.8;
   }
   .ts-tab:hover { opacity: 1; }

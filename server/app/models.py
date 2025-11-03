@@ -142,10 +142,10 @@ class User:
             else:
                 # Create new interest
                 cursor.execute(
-                    "INSERT INTO Interests (Name) VALUES (?)",
+                    "INSERT INTO Interests (Name) OUTPUT INSERTED.InterestID VALUES (?)",
                     (interest_name,)
                 )
-                interest_id = cursor.lastrowid
+                interest_id = cursor.fetchone()[0]
 
             # Add user-interest relationship (ignore if already exists)
             cursor.execute(
@@ -207,10 +207,10 @@ class User:
                 else:
                     # Create new interest
                     cursor.execute(
-                        "INSERT INTO Interests (Name) VALUES (?)",
+                        "INSERT INTO Interests (Name) OUTPUT INSERTED.InterestID VALUES (?)",
                         (interest_name,)
                     )
-                    interest_id = cursor.lastrowid
+                    interest_id = cursor.fetchone()[0]
 
                 # Add user-interest relationship
                 cursor.execute(
@@ -305,6 +305,146 @@ class User:
         finally:
             conn.close()
 
+    @staticmethod
+    def follow_user(follower_uid, following_uid):
+        """Follow another user"""
+        if follower_uid == following_uid:
+            raise ValueError("Cannot follow yourself")
+
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if both users exist
+            cursor.execute(
+                "SELECT COUNT(*) FROM Users WHERE FirebaseUID IN (?, ?)", (follower_uid, following_uid))
+            count = cursor.fetchone()[0]
+            if count != 2:
+                raise ValueError("One or both users do not exist")
+
+            # Check if already following
+            cursor.execute(
+                "SELECT COUNT(*) FROM SocialConnections WHERE FollowerUID = ? AND FollowingUID = ?",
+                (follower_uid, following_uid)
+            )
+            if cursor.fetchone()[0] > 0:
+                return False  # Already following
+
+            # Create follow relationship
+            cursor.execute(
+                "INSERT INTO SocialConnections (FollowerUID, FollowingUID) VALUES (?, ?)",
+                (follower_uid, following_uid)
+            )
+            conn.commit()
+            return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def unfollow_user(follower_uid, following_uid):
+        """Unfollow a user"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "DELETE FROM SocialConnections WHERE FollowerUID = ? AND FollowingUID = ?",
+                (follower_uid, following_uid)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_following(firebase_uid):
+        """Get list of users that this user is following"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT u.FirebaseUID, u.Username, u.FirstName, u.LastName, sc.CreatedAt
+                FROM SocialConnections sc
+                INNER JOIN Users u ON sc.FollowingUID = u.FirebaseUID
+                WHERE sc.FollowerUID = ?
+                ORDER BY sc.CreatedAt DESC
+                """,
+                (firebase_uid,)
+            )
+            rows = cursor.fetchall()
+            return [{
+                "firebase_uid": row[0],
+                "username": row[1],
+                "first_name": row[2],
+                "last_name": row[3],
+                "followed_at": row[4].isoformat() if hasattr(row[4], 'isoformat') else row[4] if row[4] else None
+            } for row in rows]
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_followers(firebase_uid):
+        """Get list of users that are following this user"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT u.FirebaseUID, u.Username, u.FirstName, u.LastName, sc.CreatedAt
+                FROM SocialConnections sc
+                INNER JOIN Users u ON sc.FollowerUID = u.FirebaseUID
+                WHERE sc.FollowingUID = ?
+                ORDER BY sc.CreatedAt DESC
+                """,
+                (firebase_uid,)
+            )
+            rows = cursor.fetchall()
+            return [{
+                "firebase_uid": row[0],
+                "username": row[1],
+                "first_name": row[2],
+                "last_name": row[3],
+                "followed_at": row[4].isoformat() if hasattr(row[4], 'isoformat') else row[4] if row[4] else None
+            } for row in rows]
+        finally:
+            conn.close()
+
+    @staticmethod
+    def is_following(follower_uid, following_uid):
+        """Check if one user is following another"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT COUNT(*) FROM SocialConnections WHERE FollowerUID = ? AND FollowingUID = ?",
+                (follower_uid, following_uid)
+            )
+            return cursor.fetchone()[0] > 0
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_user_by_username(username):
+        """Get user by username"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT FirebaseUID, Username, Email, FirstName, LastName, Location, Bio, CreatedAt, UpdatedAt FROM Users WHERE Username = ?",
+                (username,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return User(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8])
+            return None
+        finally:
+            conn.close()
+
 
 class Event:
     def __init__(self, event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees=None, image_url=None, created_at=None, updated_at=None):
@@ -322,19 +462,27 @@ class Event:
         self.updated_at = updated_at
 
     def to_dict(self):
+        # Helper function to safely convert datetime to ISO format
+        def safe_isoformat(dt):
+            if dt is None:
+                return None
+            if hasattr(dt, 'isoformat'):
+                return dt.isoformat()
+            return str(dt)  # If it's already a string, return as is
+
         return {
             "event_id": self.event_id,
             "organizer_uid": self.organizer_uid,
             "title": self.title,
             "description": self.description,
-            "start_time": self.start_time.isoformat(),
-            "end_time": self.end_time.isoformat(),
+            "start_time": safe_isoformat(self.start_time),
+            "end_time": safe_isoformat(self.end_time),
             "location": self.location,
             "category_id": self.category_id,
             "max_attendees": self.max_attendees,
             "image_url": self.image_url,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at
+            "created_at": safe_isoformat(self.created_at),
+            "updated_at": safe_isoformat(self.updated_at)
         }
 
     @staticmethod
@@ -342,21 +490,100 @@ class Event:
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
+            # Use OUTPUT clause to get the inserted EventID
             cursor.execute(
                 """
                 INSERT INTO Events (OrganizerUID, Title, Description, StartTime, EndTime, Location, CategoryID, MaxAttendees, ImageURL)
+                OUTPUT INSERTED.EventID
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (organizer_uid, title, description, start_time, end_time,
                  location, category_id, max_attendees, image_url)
             )
+            event_id = cursor.fetchone()[0]
             conn.commit()
-            event_id = cursor.lastrowid
 
             return Event(event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
         except Exception as e:
             conn.rollback()
             raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_events(q=None, page: int = 1, per_page: int = 20, sort_by: str = "StartTime", sort_dir: str = "ASC"):
+        """
+        Simplified search: only supports a free-text query `q` (matches Title/Description/Location)
+        plus pagination and simple sorting. Returns dict { events: [Event,...], total: int }.
+        """
+        clauses = []
+        params = []
+
+        if q:
+            like = f"%{q}%"
+            clauses.append(
+                "(Title LIKE ? OR Description LIKE ? OR Location LIKE ?)")
+            params += [like, like, like]
+
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+        # sanitize sort_by and sort_dir
+        sort_dir = "DESC" if str(sort_dir).upper() == "DESC" else "ASC"
+        allowed_sort_cols = {"StartTime", "EndTime", "CreatedAt", "Title"}
+        sort_by = sort_by if sort_by in allowed_sort_cols else "StartTime"
+
+        # pagination
+        try:
+            page = max(1, int(page))
+        except Exception:
+            page = 1
+        try:
+            per_page = max(1, int(per_page))
+        except Exception:
+            per_page = 20
+
+        offset = (page - 1) * per_page
+
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # total count
+            count_query = f"SELECT COUNT(*) FROM Events {where_sql}"
+            cursor.execute(count_query, params)
+            row = cursor.fetchone()
+            total = int(row[0]) if row else 0
+
+            # fetch paged rows
+            query = f"""
+                    SELECT *
+                    FROM Events
+                    {where_sql}
+                    ORDER BY {sort_by} {sort_dir}
+                    OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+                """
+            exec_params = params + [offset, per_page]
+            cursor.execute(query, exec_params)
+            rows = cursor.fetchall()
+
+            events = [
+                Event(
+                    event_id=row[0],
+                    organizer_uid=row[1],
+                    title=row[2],
+                    description=row[3],
+                    start_time=row[4],
+                    end_time=row[5],
+                    location=row[6],
+                    category_id=row[7],
+                    max_attendees=row[8],
+                    image_url=row[9],
+                    created_at=row[10],
+                    updated_at=row[11]
+                )
+                for row in rows
+            ]
+
+            return {"events": events, "total": total}
         finally:
             conn.close()
 
@@ -469,6 +696,302 @@ class Event:
             cursor.execute("DELETE FROM Events WHERE EventID = ?", (event_id))
             conn.commit()
             return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_events_by_organizer(organizer_uid):
+        """Get all events organized by a specific user"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT EventID, OrganizerUID, Title, Description, StartTime, EndTime, Location, 
+                       CategoryID, MaxAttendees, ImageURL, CreatedAt, UpdatedAt
+                FROM Events 
+                WHERE OrganizerUID = ?
+                ORDER BY StartTime ASC
+                """,
+                (organizer_uid,)
+            )
+            rows = cursor.fetchall()
+
+            events = [
+                Event(
+                    event_id=row[0],
+                    organizer_uid=row[1],
+                    title=row[2],
+                    description=row[3],
+                    start_time=row[4],
+                    end_time=row[5],
+                    location=row[6],
+                    category_id=row[7],
+                    max_attendees=row[8],
+                    image_url=row[9],
+                    created_at=row[10],
+                    updated_at=row[11]
+                )
+                for row in rows
+            ]
+
+            return events
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_events_by_attendee(user_uid):
+        """Get all events that a user is attending (has RSVP'd 'Going' to), excluding events they organized"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT e.EventID, e.OrganizerUID, e.Title, e.Description, e.StartTime, e.EndTime, e.Location, 
+                       e.CategoryID, e.MaxAttendees, e.ImageURL, e.CreatedAt, e.UpdatedAt
+                FROM Events e
+                INNER JOIN RSVPs r ON e.EventID = r.EventID
+                WHERE r.UserUID = ? AND r.Status = 'Going' AND e.OrganizerUID != ?
+                ORDER BY e.StartTime ASC
+                """,
+                (user_uid, user_uid)
+            )
+            rows = cursor.fetchall()
+
+            events = [
+                Event(
+                    event_id=row[0],
+                    organizer_uid=row[1],
+                    title=row[2],
+                    description=row[3],
+                    start_time=row[4],
+                    end_time=row[5],
+                    location=row[6],
+                    category_id=row[7],
+                    max_attendees=row[8],
+                    image_url=row[9],
+                    created_at=row[10],
+                    updated_at=row[11]
+                )
+                for row in rows
+            ]
+
+            return events
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_friend_events(firebase_uid):
+        # Events that friends the user is following are attending or interested in
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT DISTINCT e.*
+                FROM Events e
+                JOIN RSVPs r ON e.EventID = r.EventID
+                JOIN SocialConnections s ON s.FollowingUID = r.UserUID
+                WHERE s.FollowerUID = ?
+                  AND r.Status IN ('Going', 'Interested')
+                """,
+                (firebase_uid,)
+            )
+            rows = cursor.fetchall()
+            if rows:
+                return [
+                    Event(
+                        event_id=row[0],
+                        organizer_uid=row[1],
+                        title=row[2],
+                        description=row[3],
+                        start_time=row[4],
+                        end_time=row[5],
+                        location=row[6],
+                        category_id=row[7],
+                        max_attendees=row[8],
+                        image_url=row[9],
+                        created_at=row[10],
+                        updated_at=row[11],
+                    )
+                    for row in rows
+                ]
+            return []
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_friend_created_events(firebase_uid):
+        # Events created by friends the user is following
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT e.*
+                FROM Events e
+                JOIN SocialConnections s ON s.FollowingUID = e.OrganizerUID
+                WHERE s.FollowerUID = ?
+                """,
+                (firebase_uid,)
+            )
+            rows = cursor.fetchall()
+            if rows:
+                return [
+                    Event(
+                        event_id=row[0],
+                        organizer_uid=row[1],
+                        title=row[2],
+                        description=row[3],
+                        start_time=row[4],
+                        end_time=row[5],
+                        location=row[6],
+                        category_id=row[7],
+                        max_attendees=row[8],
+                        image_url=row[9],
+                        created_at=row[10],
+                        updated_at=row[11],
+                    )
+                    for row in rows
+                ]
+            return []
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_friend_feed(firebase_uid):
+        # Combine events friends are attending/interested in and events they created
+        attending = Event.get_friend_events(firebase_uid)
+        created = Event.get_friend_created_events(firebase_uid)
+        combined = attending + [e for e in created if e not in attending]
+        combined.sort(key=lambda e: e.start_time)
+        return combined
+
+
+class RSVP:
+    def __init__(self, rsvp_id, user_uid, event_id, status, created_at=None, updated_at=None):
+        self.rsvp_id = rsvp_id
+        self.user_uid = user_uid
+        self.event_id = event_id
+        self.status = status
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def to_dict(self):
+        def safe_isoformat(dt):
+            if dt is None:
+                return None
+            if hasattr(dt, 'isoformat'):
+                return dt.isoformat()
+            return str(dt)
+
+        return {
+            "rsvp_id": self.rsvp_id,
+            "user_uid": self.user_uid,
+            "event_id": self.event_id,
+            "status": self.status,
+            "created_at": safe_isoformat(self.created_at),
+            "updated_at": safe_isoformat(self.updated_at)
+        }
+
+    @staticmethod
+    def create_or_update_rsvp(user_uid, event_id, status):
+        """Create or update an RSVP for an event"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if RSVP already exists
+            cursor.execute(
+                "SELECT RSVPID FROM RSVPs WHERE UserUID = ? AND EventID = ?",
+                (user_uid, event_id)
+            )
+            existing_rsvp = cursor.fetchone()
+
+            if existing_rsvp:
+                # Update existing RSVP
+                cursor.execute(
+                    "UPDATE RSVPs SET Status = ?, UpdatedAt = GETDATE() WHERE RSVPID = ?",
+                    (status, existing_rsvp[0])
+                )
+                rsvp_id = existing_rsvp[0]
+            else:
+                # Create new RSVP
+                cursor.execute(
+                    """
+                    INSERT INTO RSVPs (UserUID, EventID, Status)
+                    OUTPUT INSERTED.RSVPID
+                    VALUES (?, ?, ?)
+                    """,
+                    (user_uid, event_id, status)
+                )
+                rsvp_id = cursor.fetchone()[0]
+
+            conn.commit()
+            return RSVP(rsvp_id, user_uid, event_id, status)
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_user_rsvps(user_uid):
+        """Get all RSVPs for a user"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT RSVPID, UserUID, EventID, Status, CreatedAt, UpdatedAt
+                FROM RSVPs 
+                WHERE UserUID = ?
+                ORDER BY CreatedAt DESC
+                """,
+                (user_uid,)
+            )
+            rows = cursor.fetchall()
+
+            rsvps = [
+                RSVP(
+                    rsvp_id=row[0],
+                    user_uid=row[1],
+                    event_id=row[2],
+                    status=row[3],
+                    created_at=row[4],
+                    updated_at=row[5]
+                )
+                for row in rows
+            ]
+
+            return rsvps
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def delete_rsvp(user_uid, event_id):
+        """Delete an RSVP"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "DELETE FROM RSVPs WHERE UserUID = ? AND EventID = ?",
+                (user_uid, event_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
         except Exception as e:
             conn.rollback()
             raise e

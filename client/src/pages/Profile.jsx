@@ -117,8 +117,16 @@ export default function ProfilePage({
               <div className="pf-grid">
                 {myEvents.map((e, i) => (
                   <div key={i} className="pf-event">
-                    <div className="pf-thumb" />
-                    <div>
+                    <div className="pf-thumb">
+                      {e.imageUrl ? (
+                        <img src={e.imageUrl} alt={e.title} />
+                      ) : (
+                        <div className="pf-thumb-placeholder">
+                          <span className="material-symbols-outlined">event</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="pf-event-body">
                       <div className="pf-event-title">{e.title}</div>
                       <div className="pf-event-sub">{e.date} • {e.location}</div>
                     </div>
@@ -141,8 +149,16 @@ export default function ProfilePage({
               <div className="pf-grid">
                 {goingTo.map((e, i) => (
                   <div key={i} className="pf-event">
-                    <div className="pf-thumb" />
-                    <div>
+                    <div className="pf-thumb">
+                      {e.imageUrl ? (
+                        <img src={e.imageUrl} alt={e.title} />
+                      ) : (
+                        <div className="pf-thumb-placeholder">
+                          <span className="material-symbols-outlined">event</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="pf-event-body">
                       <div className="pf-event-title">{e.title}</div>
                       <div className="pf-event-sub">{e.date} • {e.location}</div>
                     </div>
