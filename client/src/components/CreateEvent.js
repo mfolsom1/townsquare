@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import "./CreateEvent.css";
 import { useAuth } from "../auth/AuthContext";
-import { createEvent } from "../api";
+import { createEvent, getUserProfile } from "../api";
 
 /* Event categories from the database */
 const EVENT_CATEGORIES = [
@@ -18,6 +18,8 @@ export default function CreateEvent({ open, onClose, onCreate }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isOrg, setIsOrg] = useState(null); // null = unknown, true/false once loaded
+  const [checkingOrg, setCheckingOrg] = useState(false);
 
   // Compute the minimum datetime value once per render
   const minDateTime = useMemo(() => new Date().toISOString().slice(0, 16), []);
@@ -28,6 +30,27 @@ export default function CreateEvent({ open, onClose, onCreate }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // When modal opens, fetch the user profile to determine org status
+  useEffect(() => {
+    let cancelled = false;
+    async function checkOrg() {
+      if (!open || !user) return;
+      try {
+        setCheckingOrg(true);
+        const idToken = await user.getIdToken();
+        const profile = await getUserProfile(idToken);
+        const type = profile?.user?.user_type;
+        if (!cancelled) setIsOrg(type === 'organization');
+      } catch (e) {
+        if (!cancelled) setIsOrg(null); // fall back to unknown, submit path will still guard
+      } finally {
+        if (!cancelled) setCheckingOrg(false);
+      }
+    }
+    checkOrg();
+    return () => { cancelled = true; };
+  }, [open, user]);
 
   if (!open) return null;
 
@@ -76,7 +99,12 @@ export default function CreateEvent({ open, onClose, onCreate }) {
       // Close the modal on success
       onClose();
     } catch (err) {
-      setError(err.message || "Failed to create event");
+      const msg = err?.message || "Failed to create event";
+      if (msg.includes("Only organization accounts") || msg.includes("Organization account required")) {
+        setError("Only organization accounts can create events.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -90,106 +118,120 @@ export default function CreateEvent({ open, onClose, onCreate }) {
           <h3>Create Event</h3>
           <button className="cem-close" onClick={onClose} aria-label="Close">×</button>
         </header>
-
-        <form className="cem-form" onSubmit={handleSubmit}>
-          {error && <div className="cem-error">{error}</div>}
-          
-          <label>
-            Title *
-            <input 
-              name="title" 
-              placeholder="e.g., UF Hackathon" 
-              maxLength="200"
-              required 
-            />
-          </label>
-
-          <label>
-            Category *
-            <select name="categoryId" required>
-              <option value="">Select a category</option>
-              {EVENT_CATEGORIES.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="cem-date-time-grid">
-            <label>
-              Start Date & Time *
-              <input 
-                type="datetime-local" 
-                name="startDateTime" 
-                min={minDateTime}
-                required 
-              />
-            </label>
-
-            <label>
-              End Date & Time *
-              <input 
-                type="datetime-local" 
-                name="endDateTime" 
-                min={minDateTime}
-                required 
-              />
-            </label>
+        {checkingOrg ? (
+          <div className="cem-form" style={{ padding: 16 }}>
+            <div>Checking your account permissions…</div>
           </div>
-
-          <label>
-            Location *
-            <input 
-              name="location" 
-              placeholder="e.g., Ben Hill Griffin Stadium, Gainesville, FL" 
-              maxLength="300"
-              required 
-            />
-          </label>
-
-          <label>
-            Description
-            <textarea 
-              name="description" 
-              rows="4" 
-              placeholder="Tell people what your event is about..."
-              maxLength="1000"
-            />
-          </label>
-
-          <div className="cem-optional-grid">
-            <label>
-              Max Attendees
-              <input 
-                type="number" 
-                name="maxAttendees" 
-                placeholder="e.g., 50"
-                min="1"
-                max="10000"
-              />
-            </label>
-
-            <label>
-              Image URL
-              <input 
-                type="url" 
-                name="imageUrl" 
-                placeholder="https://example.com/image.jpg"
-                maxLength="500"
-              />
-            </label>
+        ) : isOrg === false ? (
+          <div className="cem-form" style={{ padding: 16 }}>
+            <div className="cem-error" style={{ marginBottom: 12 }}>
+              Only organization accounts can create events.
+            </div>
+            <footer className="cem-actions">
+              <button type="button" onClick={onClose} className="cem-btn primary">Close</button>
+            </footer>
           </div>
+        ) : (
+          <form className="cem-form" onSubmit={handleSubmit}>
+            {error && <div className="cem-error">{error}</div>}
 
-          <footer className="cem-actions">
-            <button type="button" onClick={onClose} className="cem-btn ghost" disabled={loading}>
-              Cancel
-            </button>
-            <button type="submit" className="cem-btn primary" disabled={loading}>
-              {loading ? "Creating..." : "Create Event"}
-            </button>
-          </footer>
-        </form>
+            <label>
+              Title *
+              <input
+                name="title"
+                placeholder="e.g., UF Hackathon"
+                maxLength="200"
+                required
+              />
+            </label>
+
+            <label>
+              Category *
+              <select name="categoryId" required>
+                <option value="">Select a category</option>
+                {EVENT_CATEGORIES.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="cem-date-time-grid">
+              <label>
+                Start Date & Time *
+                <input
+                  type="datetime-local"
+                  name="startDateTime"
+                  min={minDateTime}
+                  required
+                />
+              </label>
+
+              <label>
+                End Date & Time *
+                <input
+                  type="datetime-local"
+                  name="endDateTime"
+                  min={minDateTime}
+                  required
+                />
+              </label>
+            </div>
+
+            <label>
+              Location *
+              <input
+                name="location"
+                placeholder="e.g., Ben Hill Griffin Stadium, Gainesville, FL"
+                maxLength="300"
+                required
+              />
+            </label>
+
+            <label>
+              Description
+              <textarea
+                name="description"
+                rows="4"
+                placeholder="Tell people what your event is about..."
+                maxLength="1000"
+              />
+            </label>
+
+            <div className="cem-optional-grid">
+              <label>
+                Max Attendees
+                <input
+                  type="number"
+                  name="maxAttendees"
+                  placeholder="e.g., 50"
+                  min="1"
+                  max="10000"
+                />
+              </label>
+
+              <label>
+                Image URL
+                <input
+                  type="url"
+                  name="imageUrl"
+                  placeholder="https://example.com/image.jpg"
+                  maxLength="500"
+                />
+              </label>
+            </div>
+
+            <footer className="cem-actions">
+              <button type="button" onClick={onClose} className="cem-btn ghost" disabled={loading}>
+                Cancel
+              </button>
+              <button type="submit" className="cem-btn primary" disabled={loading}>
+                {loading ? "Creating..." : "Create Event"}
+              </button>
+            </footer>
+          </form>
+        )}
       </div>
     </div>
   );
