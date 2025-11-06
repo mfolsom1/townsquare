@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request
 from .models import Event, RSVP
 from firebase_admin import auth
 from .models import User
-from .auth_utils import require_auth
+from .auth_utils import require_auth, require_organization
 import pyodbc
 
 
@@ -593,15 +593,9 @@ def register_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route('/events', methods=['POST'])
-    @require_auth
-    def create_event(firebase_uid):
+    @require_organization
+    def create_event(firebase_uid, user=None):
         try:
-            # Only org accounts can create events
-            requester = User.get_user_by_firebase_uid(firebase_uid)
-            if not requester:
-                return jsonify({"error": "User not found"}), 404
-            if requester.user_type != 'organization':
-                return jsonify({"error": "Only organization accounts can create events"}), 403
             # Parse JSON data from the request
             data = request.get_json()
 
@@ -687,9 +681,10 @@ def register_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route('/events/<int:event_id>', methods=['DELETE'])
-    @require_auth
-    def delete_event(firebase_uid, event_id):
+    @require_organization
+    def delete_event(firebase_uid, event_id, user=None):
         try:
+
             success = Event.delete_event(event_id, firebase_uid)
 
             if not success:

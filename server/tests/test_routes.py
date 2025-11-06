@@ -16,6 +16,7 @@ def client():
     # Mock external services during app creation
     with patch('firebase_admin._apps', {}), \
             patch('firebase_admin.initialize_app'), \
+            patch('firebase_admin.credentials.Certificate'), \
             patch('app.database.init_database'):
         app = create_app()
         app.config['TESTING'] = True
@@ -133,13 +134,13 @@ def test_create_event_success(mock_get_user, mock_create_event, mock_verify_toke
     assert response.json["new_event"]["title"] == "Community Meetup"
 
 
-@patch('app.models.Event.get_all_events')
-def test_get_events_success(mock_get_all_events, client):
+@patch('app.models.Event.get_events')
+def test_get_events_success(mock_get_events, client):
     """Test successful retrieval of all events"""
     mock_event = Mock()
     mock_event.to_dict.return_value = {
         "event_id": 1, "title": "Community Meetup"}
-    mock_get_all_events.return_value = [mock_event]
+    mock_get_events.return_value = {"events": [mock_event], "total": 1}
 
     response = client.get("/events")
 
@@ -179,9 +180,13 @@ def test_update_event(mock_update_event, mock_verify_token, client):
 
 @patch('app.auth_utils.auth.verify_id_token')  # CORRECTED PATH
 @patch('app.models.Event.delete_event')
-def test_delete_event_success(mock_delete_event, mock_verify_token, client):
+@patch('app.models.User.get_user_by_firebase_uid')
+def test_delete_event_success(mock_get_user, mock_delete_event, mock_verify_token, client):
     """Test successful event deletion"""
     mock_verify_token.return_value = {'uid': 'test-firebase-uid'}
+    org_user = Mock()
+    org_user.user_type = 'organization'
+    mock_get_user.return_value = org_user
     mock_delete_event.return_value = True
 
     response = client.delete(
@@ -192,3 +197,49 @@ def test_delete_event_success(mock_delete_event, mock_verify_token, client):
     assert response.status_code == 200
     assert response.json["success"] is True
     assert response.json["message"] == "Event deleted successfully"
+
+
+@patch('app.auth_utils.auth.verify_id_token')
+@patch('app.models.User.get_user_by_firebase_uid')
+def test_create_event_individual(mock_get_user, mock_verify_token, client):
+    """Ensure individuals cannot create events (403)."""
+    mock_verify_token.return_value = {'uid': 'indiv-uid'}
+    indiv = Mock()
+    indiv.user_type = 'individual'
+    mock_get_user.return_value = indiv
+
+    event_data = {
+        "Title": "Community Meetup",
+        "Description": "desc",
+        "StartTime": "2025-09-30T10:00:00",
+        "EndTime": "2025-09-30T12:00:00",
+        "Location": "Hall",
+        "CategoryID": 1
+    }
+
+    resp = client.post(
+        "/events",
+        json=event_data,
+        headers={"Authorization": "Bearer valid-token"}
+    )
+
+    assert resp.status_code == 403
+    assert resp.json["error"] == "Organization account required"
+
+
+@patch('app.auth_utils.auth.verify_id_token')
+@patch('app.models.User.get_user_by_firebase_uid')
+def test_delete_event_individual(mock_get_user, mock_verify_token, client):
+    """Ensure individuals cannot delete events (403)."""
+    mock_verify_token.return_value = {'uid': 'indiv-uid'}
+    indiv = Mock()
+    indiv.user_type = 'individual'
+    mock_get_user.return_value = indiv
+
+    resp = client.delete(
+        "/events/1",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+
+    assert resp.status_code == 403
+    assert resp.json["error"] == "Organization account required"
