@@ -1,3 +1,5 @@
+@import "Style.css";
+
 /* General page layout */
 .ts-page {
     max-width: 1200px;
@@ -28,7 +30,7 @@
 }
 
 .ts-refresh-btn, .ts-retry-btn {
-    background: #1f6feb;
+    background: var(--button-bg-color);
     color: white;
     border: none;
     padding: 8px 16px;
@@ -39,7 +41,7 @@
 }
 
 .ts-refresh-btn:hover:not(:disabled), .ts-retry-btn:hover {
-    background: #1557c7;
+    background: var(--button-bg-color-dark);
 }
 
 .ts-refresh-btn:disabled {
@@ -84,16 +86,16 @@
     display: flex;
     flex-direction: column;
     /* CHANGE: These properties create the distinct "box" effect */
-    border: 1px solid #e0e0e0;
+    border: 1px solid #e3e3e3;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow:5px 10px 5px rgba(0,0,0,0.4);
     overflow: hidden; /* Ensures the image respects the rounded corners */
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
 .event-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    /* box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12); */
 }
 
 /* --- Card Image & Badge --- */
