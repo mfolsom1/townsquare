@@ -1,18 +1,11 @@
 /* Theme colors */
 :root {
-  --primary-color: #fff;
-  --secondary-color: #ccc;
-  --text-color: #111;
-  --accent-color: #8851bc;
   --error-color: #a20000;
   --card-bg: #f5f5f5;       /* background of auth-card */
   --input-bg: #fff;         /* background of inputs */
   --hint-color: #a20000;    /* password hint color */
   --switch-color: #666;     /* auth-switch text color */
   --switch-link-hover: underline;
-  --button-text-color: #fff;
-  --button-disabled-bg: #ccc;
-  --button-disabled-color: #666;
 }
 
 /* Container */
