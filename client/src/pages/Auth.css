@@ -15,7 +15,7 @@
   align-items:center; 
   justify-content:center; 
   padding:40px; 
-  background: var(--primary-color);
+  background: var(--color-primary);
   font-family: "Inter", sans-serif;
 }
 
@@ -23,7 +23,7 @@
 .auth-title {
   font-size: 16px;
   font-weight: 700;
-  color: var(--accent-color);
+  color: var(--color-accent);
   margin: 0 0 0px 0;
   text-align: left;
 }
@@ -32,7 +32,7 @@
   width:100%; 
   max-width:420px; 
   background: var(--card-bg);
-  border:2px solid var(--accent-color); 
+  border:2px solid var(--color-accent); 
   border-radius:16px; 
   padding:28px; 
   box-shadow:-25px 25px 10px rgba(0,0,0,0.3);
@@ -45,7 +45,7 @@
 .auth-card h1 { 
   margin:0 0 8px; 
   font-size:24px; 
-  color: var(--text-color);
+  color: var(--color-text-dark);
   text-align: left;
 }
 
@@ -55,25 +55,25 @@
   gap:6px; 
   margin:12px 0; 
   font-weight:600; 
-  color: var(--text-color);
+  color: var(--color-text-dark);
   width: 100%;
   box-sizing: border-box;
 }
 
 .auth-card input { 
   padding:12px 14px; 
-  border:1px solid var(--secondary-color); 
+  border:1px solid var(--color-secondary); 
   border-radius:10px; 
   font-size:14px; 
   background: var(--input-bg);
-  color: var(--text-color);
+  color: var(--color-text-dark);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   width: 100%;
   box-sizing: border-box;
 }
 
 .auth-card input:focus {
-  border-color: var(--accent-color);
+  border-color: var(--color-accent);
   outline: none;
   box-shadow: 0 0 4px rgba(136, 81, 188, 0.2);
 }
@@ -152,7 +152,7 @@
 }
 
 .auth-btn.primary { 
-  background: var(--accent-color); 
+  background: var(--color-accent); 
   color: var(--button-text-color); 
   transition: all 0.25s ease; 
 }
@@ -177,7 +177,7 @@
 }
 
 .auth-switch a { 
-  color: var(--accent-color); 
+  color: var(--color-accent); 
   text-decoration: none; 
   font-weight: 500;
 }
@@ -195,7 +195,7 @@
 .forgot-password-btn {
   background: none;
   border: none;
-  color: var(--accent-color);
+  color: var(--color-accent);
   font-size: 0.85rem;
   cursor: pointer;
   padding: 0;

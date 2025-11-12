@@ -6,7 +6,7 @@
   /* Default Page Colors */
   --color-primary: #fff;
   --color-secondary: #ccc;
-  --color-dark: #eaeaea;
+  --color-dark: var(--color-primary);
   --color-accent: #8851bc;
   --color-accent-dark: #703aa2;
 
@@ -28,8 +28,6 @@
   --hint-color: #a20000;    /* password hint color */
   --switch-color: #666;     /* auth-switch text color */
   --switch-link-hover: underline;
-
-
 } 
 
 body {
