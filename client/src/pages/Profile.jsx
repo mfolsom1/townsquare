@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import "./Profile.css";
 import CreateEvent from "../components/CreateEvent.js"; 
 import EditProfile from "../components/EditProfile.jsx";
+import { Link } from "react-router-dom";
 
 const initialsFromName = (name = "User") =>
   name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase()).join("") || "U";
@@ -107,6 +108,12 @@ export default function ProfilePage({
               <div className="pf-empty">Interests from your profile.</div>
             )}
           </div>
+          
+          {/*TEMP BTN */}
+          <Link to="/test-org" className="temp-org-btn">
+            Org Dashboard Preview
+          </Link>
+
         </section>
 
         {/* RIGHT */}

@@ -15,6 +15,7 @@ import ProfileContainer from "./pages/ProfileContainer";
 import Profile from "./pages/Profile";
 import SavedEventsPage from "./pages/SavedEventsPage";
 import Following from "./pages/Following"
+import OrgDashboard from "./pages/OrgDashboard";
 
 function App() {
   return (
@@ -25,6 +26,18 @@ function App() {
 
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+
+              {/* TEMPORARY LINK TO ORG-DASH */}
+              <Route
+              path="/test-org"
+              element={
+                <>
+                  <NavBar />
+                  <OrgDashboard />
+                </>
+              }
+            />
+
 
             <Route
                 path="/*"
@@ -37,6 +50,7 @@ function App() {
                       <Route path="/events/:eventId" element={<EventDetail />} />
                       <Route path="/following" element={<Following />} />
                       <Route path="/saved" element={<SavedEventsPage />} />
+              
                       <Route path="*" element={<Discover />} />
                       <Route path="/profile" element=
                       {<RequireAuth>
