@@ -1,5 +1,7 @@
+@import "Style.css";
+
+
 .event-detail-page {
-    background-color: #f9f9f9;
     padding: 2rem 1rem;
     min-height: 100vh;
 }
@@ -7,7 +9,7 @@
 .event-detail-container {
     max-width: 800px;
     margin: 0 auto;
-    background-color: #fff;
+    background-color: var(--color-primary);
     border-radius: 16px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     padding: 2.5rem;
@@ -16,7 +18,7 @@
 .back-link {
     display: inline-block;
     margin-bottom: 1.5rem;
-    color: #007BFF;
+    color: var(--color-accent);
     text-decoration: none;
     font-weight: 600;
 }
@@ -95,7 +97,7 @@
 }
 
 .event-description p {
-    color: #333;
+    color: var(--color-text-accent);
     line-height: 1.7;
     /* This respects the newlines from your database description */
     white-space: pre-wrap;
@@ -106,11 +108,11 @@
     text-align: center;
     padding: 4rem;
     font-size: 1.5rem;
-    color: #555;
+    color: var(--color-accent);
 }
 
 .page-status.error {
-    color: #d9534f;
+    color: var(--color-error);
 }
 
 .rsvp-container {
@@ -124,11 +126,11 @@
 .rsvp-button {
     justify-content: center;
     align-items: center;
-    background-color: #007BFF;
-    color:#eee;
+    background-color: var(--color-accent);
+    color: var(--color-primary);
     font-weight: medium;
     font-size: 20px;
-    font-family: 'Times New Roman', Times, serif;
+    /* font-family: 'Times New Roman', Times, serif; */
     width: 160px;
     height: 40px;
     border-radius: 16px;

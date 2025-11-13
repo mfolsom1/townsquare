@@ -3,6 +3,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import NavBar from "./components/NavBar";
+import NavBarLeft from "./components/NavBarLeft";
 import Discover from "./pages/Discover";
 import EventDetail from "./pages/EventDetail";
 
@@ -30,26 +31,33 @@ function App() {
                 path="/*"
                 element={
                   <RequireAuth>
-                    <>
-                    <NavBar />
-                    <Routes>
-                      <Route path="/discover" element={<Discover />} />
-                      <Route path="/events/:eventId" element={<EventDetail />} />
-                      <Route path="/following" element={<Following />} />
-                      <Route path="/saved" element={<SavedEventsPage />} />
-                      <Route path="*" element={<Discover />} />
-                      <Route path="/profile" element=
-                      {<RequireAuth>
-                        <ProfileContainer />
-                        </RequireAuth>
-                      }
-                      />
-                    </Routes>
-                  </>
+                  <NavBar />
+
+                  <div style={{ display: "flex" }}>
+                    <NavBarLeft />
+
+                    <div style={{ flex: 1, padding: "20px" }}>
+                      <Routes>
+                        <Route path="/discover" element={<Discover />} />
+                        <Route path="/events/:eventId" element={<EventDetail />} />
+                        <Route path="/following" element={<Following />} />
+                        <Route path="/saved" element={<SavedEventsPage />} />
+                        <Route path="*" element={<Discover />} />
+                        <Route
+                          path="/profile"
+                          element={
+                            <RequireAuth>
+                              <ProfileContainer />
+                            </RequireAuth>
+                          }
+                        />
+                      </Routes>
+                    </div>
+                  </div>
                 </RequireAuth>
                 }
               />
-            </Routes>
+           </Routes>
         </EventProvider>
       </AuthProvider>
     </Router>
