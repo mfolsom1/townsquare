@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./Following.css";
-import { getFriendEvents, getFriendCreatedEvents } from "../api";
+import { getFriendEvents, getFriendCreatedEvents, getFollowedOrganizations, getOrganizationEvents } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
 import SavedEvents from "../hooks/SavedEvents";
@@ -31,17 +31,34 @@ export default function Following() {
 
         const idToken = await user.getIdToken();
 
-        const response1 = await getFriendEvents(idToken);
-        const friendEventsArray = Array.isArray(response1.events)
-          ? response1.events
+        // Fetch events from friends and organizations in parallel
+        const [friendEventsResponse, followedOrgsResponse] = await Promise.all([
+          getFriendEvents(idToken),
+          getFollowedOrganizations(idToken)
+        ]);
+        
+        const friendEventsData = Array.isArray(friendEventsResponse.events)
+          ? friendEventsResponse.events
           : [];
-        if (mounted) setFriendEvents(friendEventsArray);
-
-        const response2 = await getFriendCreatedEvents(idToken);
-        const createdEventsArray = Array.isArray(response2.events)
-          ? response2.events
-          : [];
-        if (mounted) setOrgEvents(createdEventsArray);
+        
+        // Fetch events from all followed organizations
+        const followedOrgs = followedOrgsResponse.organizations || [];
+        const orgEventPromises = followedOrgs.map(org => 
+          getOrganizationEvents(org.org_id)
+        );
+        const orgEventResponses = await Promise.all(orgEventPromises);
+        const orgEventsData = orgEventResponses.flatMap(response => 
+          Array.isArray(response.events) ? response.events : []
+        );
+        
+        // Deduplicate events: prioritize showing in friend events if they appear in both
+        const friendEventIds = new Set(friendEventsData.map(e => e.event_id));
+        const uniqueOrgEvents = orgEventsData.filter(event => !friendEventIds.has(event.event_id));
+        
+        if (mounted) {
+          setFriendEvents(friendEventsData);
+          setOrgEvents(uniqueOrgEvents);
+        }
       } catch (err) {
         if (mounted) setError(err.message || "An unexpected error occurred.");
       } finally {
@@ -54,24 +71,6 @@ export default function Following() {
     };
   }, [user, navigate]);
 
-  const renderContent = () => {
-    if (loading) return <p className="ts-loading">Loading events...</p>;
-    if (error) return <p className="ts-error">Error: {error}</p>;
-
-    return (
-      <div className="event-grid">
-        {friendEvents.map((event) => (
-          <EventCard
-            key={event.event_id}
-            event={event}
-            isSaved={isSaved}
-            onToggleSaved={toggleSaved}
-          />
-        ))}
-      </div>
-    );
-  };
-
   return (
     <main className="main-container">
       <div>
@@ -81,47 +80,60 @@ export default function Following() {
         </p>
       </div>
 
-      {/* Friends Section */}
-      <div>
-        <h2 className="friends-header">Events with People You Follow</h2>
-        <div>
-          {loading && <p className="ts-loading">Loading events...</p>}
-          {error && <p className="ts-error">Error: {error}</p>}
-          {!loading && !error && (
-            <div className="event-grid">
-              {friendEvents.map((event) => (
-                <EventCard
-                  key={event.event_id}
-                  event={event}
-                  isSaved={isSaved}
-                  onToggleSaved={toggleSaved}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Show loading/error states */}
+      {loading && <p className="ts-loading">Loading events...</p>}
+      {error && <p className="ts-error">Error: {error}</p>}
 
-      {/* Organizations Section */}
-      <div>
-        <h2 className="orgs-header">Events from Organizations You Follow</h2>
-        <div>
-          {loading && <p className="ts-loading">Loading events...</p>}
-          {error && <p className="ts-error">Error: {error}</p>}
-          {!loading && !error && (
-            <div className="event-grid">
-              {orgEvents.map((event) => (
-                <EventCard
-                  key={event.event_id}
-                  event={event}
-                  isSaved={isSaved}
-                  onToggleSaved={toggleSaved}
-                />
-              ))}
+      {/* Only show content when not loading and no error */}
+      {!loading && !error && (
+        <>
+          {/* Friends Section */}
+          <div>
+            <h2 className="friends-header">Events from People You Follow</h2>
+            <div>
+              {friendEvents.length > 0 ? (
+                <div className="event-grid">
+                  {friendEvents.map((event) => (
+                    <EventCard
+                      key={event.event_id}
+                      event={event}
+                      isSaved={isSaved}
+                      onToggleSaved={toggleSaved}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="no-events-message">
+                  No events from people you follow. Try following some users to see their events here!
+                </p>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+
+          {/* Organizations Section */}
+          <div>
+            <h2 className="orgs-header">Events from Organizations You Follow</h2>
+            <div>
+              {orgEvents.length > 0 ? (
+                <div className="event-grid">
+                  {orgEvents.map((event) => (
+                    <EventCard
+                      key={event.event_id}
+                      event={event}
+                      isSaved={isSaved}
+                      onToggleSaved={toggleSaved}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="no-events-message">
+                  No events from organizations you follow. Try following some organizations to see their events here!
+                </p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }

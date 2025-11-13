@@ -5,9 +5,18 @@ import {
   createOrUpdateRsvp,
   deleteRsvp,
   getUserRsvps,
+  getUserPublicInfo,
+  getOrganizationById,
+  followOrganization,
+  unfollowOrganization,
+  joinOrganization,
+  leaveOrganization,
+  getFollowedOrganizations,
+  getUserOrganizations,
 } from "../api"; // Make sure the path to your api.js is correct
 import { useAuth } from "../auth/AuthContext";
 import RsvpModal from "../components/RsvpModal";
+import FollowButton from "../components/FollowButton";
 import "./EventDetail.css";
 
 // Re-using the same helpers from the Discover page for consistency
@@ -47,6 +56,8 @@ export default function EventDetail() {
   const navigate = useNavigate(); // optional
 
   const [event, setEvent] = useState(null);
+  const [organizer, setOrganizer] = useState(null);
+  const [organization, setOrganization] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -55,11 +66,38 @@ export default function EventDetail() {
   const [rsvpError, setRsvpError] = useState(null);
   const [isRsvpOpen, setIsRsvpOpen] = useState(false);
 
+  const [isFollowingOrg, setIsFollowingOrg] = useState(false);
+  const [isMemberOfOrg, setIsMemberOfOrg] = useState(false);
+  const [orgLoading, setOrgLoading] = useState(false);
+  const [orgError, setOrgError] = useState(null);
+
   useEffect(() => {
     const fetchEvent = async () => {
       try {
         const response = await getEventById(eventId);
-        setEvent(response.event);
+        const eventData = response.event;
+        setEvent(eventData);
+
+        // Fetch organizer info
+        if (eventData.organizer_uid) {
+          try {
+            const organizerResponse = await getUserPublicInfo(eventData.organizer_uid);
+            setOrganizer(organizerResponse.user);
+          } catch (err) {
+            console.warn("Failed to fetch organizer info:", err);
+            // Not critical, so we don't set error state
+          }
+        }
+
+        // Fetch organization info if event has an org_id
+        if (eventData.org_id) {
+          try {
+            const orgResponse = await getOrganizationById(eventData.org_id);
+            setOrganization(orgResponse.organization);
+          } catch (err) {
+            console.warn("Failed to fetch organization info:", err);
+          }
+        }
       } catch (err) {
         setError(err.message || "Failed to load event details.");
       } finally {
@@ -97,6 +135,40 @@ export default function EventDetail() {
       mounted = false;
     };
   }, [user, eventId, navigate]);
+
+  // Effect: Check if user is following or member of the organization
+  useEffect(() => {
+    let mounted = true;
+    const checkOrgStatus = async () => {
+      if (!user || !organization) {
+        return;
+      }
+      try {
+        const idToken = await user.getIdToken();
+        
+        // Check if following
+        const followedResp = await getFollowedOrganizations(idToken);
+        const followedOrgs = followedResp?.organizations || [];
+        const isFollowing = followedOrgs.some(org => org.org_id === organization.org_id);
+        
+        // Check if member
+        const memberResp = await getUserOrganizations(idToken);
+        const memberOrgs = memberResp?.organizations || [];
+        const isMember = memberOrgs.some(org => org.org_id === organization.org_id);
+        
+        if (!mounted) return;
+        setIsFollowingOrg(isFollowing);
+        setIsMemberOfOrg(isMember);
+      } catch (err) {
+        if (!mounted) return;
+        console.warn("Failed to load organization status", err);
+      }
+    };
+    checkOrgStatus();
+    return () => {
+      mounted = false;
+    };
+  }, [user, organization]);
 
   // Handler to create/update RSVP (status = 'Going'|'Interested'|'Not Going')
   async function handleSetRsvp(status) {
@@ -152,6 +224,64 @@ export default function EventDetail() {
     }
   }
 
+  // Handler to follow/unfollow organization
+  async function handleToggleFollowOrg() {
+    if (!user) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    if (!organization) return;
+
+    setOrgError(null);
+    const previous = isFollowingOrg;
+    setIsFollowingOrg(!previous);
+    setOrgLoading(true);
+
+    try {
+      const idToken = await user.getIdToken();
+      if (previous) {
+        await unfollowOrganization(idToken, organization.org_id);
+      } else {
+        await followOrganization(idToken, organization.org_id);
+      }
+    } catch (err) {
+      setIsFollowingOrg(previous);
+      setOrgError(err.message || "Failed to update organization follow status");
+    } finally {
+      setOrgLoading(false);
+    }
+  }
+
+  // Handler to join/leave organization
+  async function handleToggleJoinOrg() {
+    if (!user) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    if (!organization) return;
+
+    setOrgError(null);
+    const previous = isMemberOfOrg;
+    setIsMemberOfOrg(!previous);
+    setOrgLoading(true);
+
+    try {
+      const idToken = await user.getIdToken();
+      if (previous) {
+        await leaveOrganization(idToken, organization.org_id);
+      } else {
+        await joinOrganization(idToken, organization.org_id);
+      }
+    } catch (err) {
+      setIsMemberOfOrg(previous);
+      setOrgError(err.message || "Failed to update organization membership");
+    } finally {
+      setOrgLoading(false);
+    }
+  }
+
   if (loading) {
     return <div className="page-status">Loading Event...</div>;
   }
@@ -188,13 +318,53 @@ export default function EventDetail() {
         />
 
         <div className="event-header">
-          <h1 className="event-title">{event.title}</h1>
+          <div className="event-title-section">
+            <h1 className="event-title">{event.title}</h1>
+            <div className="organizer-follow-section">
+              <span className="organizer-label">
+                Organized by: <strong>{organizer ? `@${organizer.username}` : 'Loading...'}</strong>
+              </span>
+              <FollowButton 
+                targetUid={event.organizer_uid}
+                targetUsername={organizer?.username}
+                className="event-follow-button"
+              />
+            </div>
+          </div>
           <span
             className="event-category-tag"
             style={{ backgroundColor: color }}
           >
             {name}
           </span>
+        </div>
+
+        <div className="organization-section">
+          <h2>📋 Organization</h2>
+          {organization ? (
+            <div className="organization-card">
+              <div className="organization-info">
+                <h3>{organization.name}</h3>
+                {organization.description && (
+                  <p className="organization-description">{organization.description}</p>
+                )}
+              </div>
+              {orgError && <div className="ts-error">{orgError}</div>}
+              <div className="organization-actions">
+                <button
+                  className={`org-action-button ${isFollowingOrg ? 'following' : ''}`}
+                  onClick={handleToggleFollowOrg}
+                  disabled={orgLoading}
+                >
+                  {isFollowingOrg ? '✓ Following' : '+ Follow'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="no-organization">
+              <p>This event is not affiliated with any organization.</p>
+            </div>
+          )}
         </div>
 
         <div className="rsvp-container">
