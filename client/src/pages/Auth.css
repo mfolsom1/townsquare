@@ -1,9 +1,7 @@
 /* Theme colors */
 :root {
-  --error-color: #a20000;
   --card-bg: #f5f5f5;       /* background of auth-card */
   --input-bg: #fff;         /* background of inputs */
-  --hint-color: #a20000;    /* password hint color */
   --switch-color: #666;     /* auth-switch text color */
   --switch-link-hover: underline;
 }
@@ -92,7 +90,7 @@
 }
 
 .auth-card input.invalid-input {       
-  border: 2px solid var(--error-color) !important;  
+  border: 2px solid var(--color-error) !important;  
   outline: none !important;               
 }
 
@@ -101,7 +99,7 @@
   box-shadow: 0 0 4px rgba(10, 122, 10, 0.5);
 }
 .auth-card input.invalid-input:focus { 
-  border-color: var(--error-color) !important;
+  border-color: var(--color-error) !important;
   box-shadow: 0 0 4px rgba(162, 0, 0, 0.5);
 }
 
@@ -131,12 +129,12 @@
 }
 
 .icon.invalid {
-  color: var(--error-color);
+  color: var(--color-error);
 }
 
 /* style for inline hint */
 .auth-hint {
-  color: var(--hint-color);
+  color: var(--color-error);
   font-size: 12px;
   margin-top: 4px;
   display: block;
@@ -163,7 +161,7 @@
 
 .auth-error { 
   background: #ffe8e8; 
-  color: var(--error-color); 
+  color: var(--color-error); 
   border:1px solid #ffc2c2; 
   padding:8px 10px; 
   border-radius:8px; 

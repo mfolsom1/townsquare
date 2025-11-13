@@ -24,7 +24,7 @@
 
 .ts-subtitle {
     font-size: 1.1rem;
-    color: #555;
+    color: var(--color-text-accent);
     margin-bottom: 0;
     flex-basis: 100%;
 }
@@ -55,7 +55,7 @@
 }
 
 .ts-error {
-    color: #dc2626;
+    color: var(--color-error);
     margin-bottom: 1rem;
 }
 
@@ -80,7 +80,7 @@
 
 /* --- Event Card (The "Box") --- */
 .event-card {
-    background-color: #ffffff;
+    background-color: var(--color-primary);
     text-decoration: none;
     color: inherit;
     display: flex;
@@ -88,7 +88,8 @@
     /* CHANGE: These properties create the distinct "box" effect */
     border: 1px solid #e3e3e3;
     border-radius: 12px;
-    box-shadow:5px 10px 5px rgba(0,0,0,0.4);
+    /* box-shadow:5px 10px 5px rgba(0,0,0,0.4); */
+    box-shadow: 3px 5px 5px rgba(124, 58, 237, 0.2);
     overflow: hidden; /* Ensures the image respects the rounded corners */
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
@@ -133,7 +134,7 @@
 
 .event-card-title {
     /* CHANGE: Smaller font size */
-    font-size: 1.1rem;
+    font-size: 1.2rem !important;
     margin: 0 0 0.25rem 0;
 }
 
@@ -141,14 +142,14 @@
 .event-card-location {
     /* CHANGE: Smaller font size */
     font-size: 0.8rem;
-    color: #666;
+    color: var(--color-text-accent-2) !important;
     margin: 0.1rem 0;
 }
 
 .event-card-description {
     /* CHANGE: Smaller font size */
     font-size: 0.85rem;
-    color: #333;
+    color: var(--color-text-accent) !important;
     margin: 0.75rem 0;
     line-height: 1.4;
     flex-grow: 1; /* Pushes the attendee count to the bottom */
@@ -160,7 +161,7 @@
     gap: 0.5rem;
     /* CHANGE: Smaller font size */
     font-size: 0.8rem;
-    color: #555;
+    color: var(--color-text-accent-2) !important;
     margin-top: auto; /* Aligns this item to the bottom of the card */
 }
 
@@ -169,11 +170,11 @@
     text-align: center;
     padding: 3rem;
     font-size: 1.2rem;
-    color: #555;
+    color: var(--color-text-accent-2) !important;
 }
 
 .ts-error {
-    color: #d9534f;
+    color: var(--color-error);
 }
 
 /* card container already exists in your sheet; these are just the save/heart bits */

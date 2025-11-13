@@ -10,8 +10,8 @@
     z-index: 1000;
     align-items: center;
     padding: 10px 20px;
-    background: var(--color-dark);
-    border-bottom: 4px solid var(--color-accent);
+    background: var(--color-primary);
+    border-bottom: 4px solid var(--color-accent-2);
   }
   
   /* left */
