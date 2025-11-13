@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import "./CreateEvent.css";
 import { useAuth } from "../auth/AuthContext";
-import { createEvent, getUserProfile } from "../api";
+import { createEvent, getFollowedOrganizations } from "../api";
 
 /* Event categories from the database */
 const EVENT_CATEGORIES = [
@@ -18,8 +18,8 @@ export default function CreateEvent({ open, onClose, onCreate }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [isOrg, setIsOrg] = useState(null); // null = unknown, true/false once loaded
-  const [checkingOrg, setCheckingOrg] = useState(false);
+  const [followedOrgs, setFollowedOrgs] = useState([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
 
   // Compute the minimum datetime value once per render
   const minDateTime = useMemo(() => new Date().toISOString().slice(0, 16), []);
@@ -31,24 +31,29 @@ export default function CreateEvent({ open, onClose, onCreate }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  // When modal opens, fetch the user profile to determine org status
+  // When modal opens, fetch the organizations that user follows
   useEffect(() => {
     let cancelled = false;
-    async function checkOrg() {
+    async function loadFollowedOrgs() {
       if (!open || !user) return;
       try {
-        setCheckingOrg(true);
+        setLoadingOrgs(true);
+        setError("");
         const idToken = await user.getIdToken();
-        const profile = await getUserProfile(idToken);
-        const type = profile?.user?.user_type;
-        if (!cancelled) setIsOrg(type === 'organization');
+        const response = await getFollowedOrganizations(idToken);
+        if (!cancelled) {
+          setFollowedOrgs(response?.organizations || []);
+        }
       } catch (e) {
-        if (!cancelled) setIsOrg(null); // fall back to unknown, submit path will still guard
+        if (!cancelled) {
+          setError("Failed to load organizations. Please try again.");
+          setFollowedOrgs([]);
+        }
       } finally {
-        if (!cancelled) setCheckingOrg(false);
+        if (!cancelled) setLoadingOrgs(false);
       }
     }
-    checkOrg();
+    loadFollowedOrgs();
     return () => { cancelled = true; };
   }, [open, user]);
 
@@ -90,6 +95,11 @@ export default function CreateEvent({ open, onClose, onCreate }) {
         ImageURL: data.imageUrl?.trim() || null,
       };
 
+      // Only include OrgID if an organization is selected
+      if (data.organizationId) {
+        eventData.OrgID = parseInt(data.organizationId);
+      }
+
       // Call the backend API
       const response = await createEvent(idToken, eventData);
 
@@ -100,8 +110,8 @@ export default function CreateEvent({ open, onClose, onCreate }) {
       onClose();
     } catch (err) {
       const msg = err?.message || "Failed to create event";
-      if (msg.includes("Only organization accounts") || msg.includes("Organization account required")) {
-        setError("Only organization accounts can create events.");
+      if (msg.includes("organizations you follow")) {
+        setError("You can only create events for organizations you follow.");
       } else {
         setError(msg);
       }
@@ -118,18 +128,9 @@ export default function CreateEvent({ open, onClose, onCreate }) {
           <h3>Create Event</h3>
           <button className="cem-close" onClick={onClose} aria-label="Close">×</button>
         </header>
-        {checkingOrg ? (
+        {loadingOrgs ? (
           <div className="cem-form" style={{ padding: 16 }}>
-            <div>Checking your account permissions…</div>
-          </div>
-        ) : isOrg === false ? (
-          <div className="cem-form" style={{ padding: 16 }}>
-            <div className="cem-error" style={{ marginBottom: 12 }}>
-              Only organization accounts can create events.
-            </div>
-            <footer className="cem-actions">
-              <button type="button" onClick={onClose} className="cem-btn primary">Close</button>
-            </footer>
+            <div>Loading organizations...</div>
           </div>
         ) : (
           <form className="cem-form" onSubmit={handleSubmit}>
@@ -154,6 +155,24 @@ export default function CreateEvent({ open, onClose, onCreate }) {
                     {category.name}
                   </option>
                 ))}
+              </select>
+            </label>
+
+            <label>
+              Organization
+              <select name="organizationId">
+                {followedOrgs.length === 0 ? (
+                  <option value="">Join an organization to have this event be under an organization!</option>
+                ) : (
+                  <>
+                    <option value="">Select an organization (optional)</option>
+                    {followedOrgs.map((org) => (
+                      <option key={org.org_id} value={org.org_id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             </label>
 

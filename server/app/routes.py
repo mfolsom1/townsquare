@@ -584,11 +584,18 @@ def register_routes(app):
             # Parse JSON data from the request
             data = request.get_json()
 
-            # Validate required fields (CategoryID is now included)
+            # Validate required fields (CategoryID is required, OrgID is optional)
             required_fields = ['Title', 'StartTime', 'EndTime', 'Location', 'CategoryID']
             missing_fields = [field for field in required_fields if field not in data]
             if missing_fields:
                 return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+
+            org_id = data.get('OrgID')
+            
+            # If an organization is specified, validate that the user is following it
+            if org_id:
+                if not User.is_following_organization(firebase_uid, org_id):
+                    return jsonify({"error": "You can only create events for organizations you follow"}), 403
 
             # Create a new Event object
             new_event = Event.create_event(
@@ -601,7 +608,7 @@ def register_routes(app):
                 category_id=data['CategoryID'], # Now a required field
                 max_attendees=data.get('MaxAttendees'),
                 image_url=data.get('ImageURL'),
-                org_id=data.get('OrgID')  # Optional organization ID
+                org_id=org_id  # Required organization ID
             )
 
             return jsonify({

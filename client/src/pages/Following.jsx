@@ -31,41 +31,34 @@ export default function Following() {
 
         const idToken = await user.getIdToken();
 
-        // Fetch events from friends (both attending/interested and created)
-        const [friendAttendingResponse, friendCreatedResponse] = await Promise.all([
+        // Fetch events from friends and organizations in parallel
+        const [friendEventsResponse, followedOrgsResponse] = await Promise.all([
           getFriendEvents(idToken),
-          getFriendCreatedEvents(idToken)
+          getFollowedOrganizations(idToken)
         ]);
         
-        const friendAttendingEvents = Array.isArray(friendAttendingResponse.events)
-          ? friendAttendingResponse.events
+        const friendEventsData = Array.isArray(friendEventsResponse.events)
+          ? friendEventsResponse.events
           : [];
-        const friendCreatedEvents = Array.isArray(friendCreatedResponse.events)
-          ? friendCreatedResponse.events
-          : [];
-        
-        // Combine and deduplicate events using event_id
-        const allFriendEvents = [...friendAttendingEvents, ...friendCreatedEvents];
-        const uniqueFriendEvents = allFriendEvents.filter((event, index, self) =>
-          index === self.findIndex(e => e.event_id === event.event_id)
-        );
-        
-        if (mounted) setFriendEvents(uniqueFriendEvents);
-
-        // Fetch events from followed organizations
-        const followedOrgsResponse = await getFollowedOrganizations(idToken);
-        const followedOrgs = followedOrgsResponse.organizations || [];
         
         // Fetch events from all followed organizations
+        const followedOrgs = followedOrgsResponse.organizations || [];
         const orgEventPromises = followedOrgs.map(org => 
           getOrganizationEvents(org.org_id)
         );
         const orgEventResponses = await Promise.all(orgEventPromises);
-        const allOrgEvents = orgEventResponses.flatMap(response => 
+        const orgEventsData = orgEventResponses.flatMap(response => 
           Array.isArray(response.events) ? response.events : []
         );
         
-        if (mounted) setOrgEvents(allOrgEvents);
+        // Deduplicate events: prioritize showing in friend events if they appear in both
+        const friendEventIds = new Set(friendEventsData.map(e => e.event_id));
+        const uniqueOrgEvents = orgEventsData.filter(event => !friendEventIds.has(event.event_id));
+        
+        if (mounted) {
+          setFriendEvents(friendEventsData);
+          setOrgEvents(uniqueOrgEvents);
+        }
       } catch (err) {
         if (mounted) setError(err.message || "An unexpected error occurred.");
       } finally {
