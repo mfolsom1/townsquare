@@ -61,12 +61,18 @@
     align-items: center;
   }
   .ts-btn {
-    background: var(--color-primary);
+    background: #e5e5e5;
     font-size: 13px;
     color: var(--color-text-dark);
     text-decoration: none;
+    border: none;
+    outline: none;
+    height: 30px;
   }
-  .ts-btn:hover { text-decoration: underline; }
+  .ts-btn:hover {
+    opacity: 1;
+    background: var(--color-secondary);
+  }
   
   .ts-icon-btn {
     border: none; background: transparent; cursor: pointer;

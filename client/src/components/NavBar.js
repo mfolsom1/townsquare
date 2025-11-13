@@ -56,7 +56,7 @@ export default function NavBar() {
 
         <div className="ts-right">
           <button className="ts-btn" onClick={() => setOpenCreate(true)}>
-            Create Event +
+            Create Event
           </button>
 
           {/* avatar links to account profile */}
