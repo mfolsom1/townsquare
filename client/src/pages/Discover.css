@@ -2,7 +2,7 @@
 
 /* General page layout */
 .ts-page {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 2rem auto;
     padding: 0 1.5rem; /* Added more horizontal padding */
 }
@@ -73,9 +73,10 @@
 .event-grid {
     display: grid;
     /* CHANGE: Increased gap for more separation between cards */
-    gap: 2rem;
     /* CHANGE: Creates smaller cards by fitting more into a row on larger screens */
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    row-gap: 4rem;
+    column-gap: 3rem;
 }
 
 /* --- Event Card (The "Box") --- */
@@ -89,7 +90,7 @@
     border: 1px solid #e3e3e3;
     border-radius: 12px;
     /* box-shadow:5px 10px 5px rgba(0,0,0,0.4); */
-    box-shadow: 3px 5px 5px rgba(124, 58, 237, 0.2);
+    box-shadow: 5px 7px 5px rgba(124, 58, 237, 0.2);
     overflow: hidden; /* Ensures the image respects the rounded corners */
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
@@ -179,7 +180,7 @@
 
 /* card container already exists in your sheet; these are just the save/heart bits */
 /* Ensure the card container allows absolute children */
-.event-card { position: relative; overflow: hidden; }
+.event-card { position: relative; overflow: hidden;}
 
 /* Heart (save) button */
 .event-save {

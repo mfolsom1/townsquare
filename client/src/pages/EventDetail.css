@@ -113,7 +113,7 @@
 }
 
 .page-status.error {
-    color: #d9534f;
+    color: var(--color-error);
 }
 
 .rsvp-container {

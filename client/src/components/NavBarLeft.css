@@ -10,8 +10,8 @@
   flex-direction: column;
   justify-content: space-between;
   background: var(--color-primary);
-  border-right: 4px solid var(--color-accent-2);
-  padding: 20px 16px;
+  border-right: 1px solid var(--color-accent-2);
+  padding: 50px 16px;
   z-index: 1000;
 }
 
@@ -27,22 +27,22 @@
 .lts-center {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 30px;
   flex: 1;
 }
 
 .lts-tab {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
+  justify-content: left;
+  align-items: left;
+  text-align: left;
 
   position: relative;
   font-size: 15px;
   color: var(--color-text-dark);
   text-decoration: none;
   opacity: 0.8;
-  padding: 8px 12px;
+  padding: 12px 12px;
   border-radius: 8px;
   transition: background 0.2s, opacity 0.2s;
 }
@@ -55,7 +55,7 @@
 .lts-tab.active {
   opacity: 1;
   font-weight: 600;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(140, 27, 140, 0.08);
 }
 
 .lts-right {

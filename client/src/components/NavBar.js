@@ -55,7 +55,7 @@ export default function NavBar() {
         </nav> */}
 
         <div className="ts-right">
-          <button className="ts-create-btn" onClick={() => setOpenCreate(true)}>
+          <button className="ts-btn" onClick={() => setOpenCreate(true)}>
             Create Event +
           </button>
 
@@ -64,7 +64,7 @@ export default function NavBar() {
             {initials}
           </Link>
 
-          <button className="ts-logout" onClick={handleLogout} aria-label="Log out">
+          <button className="ts-btn" onClick={handleLogout} aria-label="Log out">
             Log out
           </button>
         </div>
