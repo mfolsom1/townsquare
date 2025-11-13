@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext"; 
-import "./Auth.css"; 
+import "./Style.css"; 
+import "./Auth.css";
 
 export default function Signup() {
 
