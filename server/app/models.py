@@ -447,7 +447,7 @@ class User:
 
 
 class Event:
-    def __init__(self, event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees=None, image_url=None, created_at=None, updated_at=None):
+    def __init__(self, event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees=None, image_url=None, created_at=None, updated_at=None, is_archived=False, archived_at=None):
         self.event_id = event_id
         self.organizer_uid = organizer_uid
         self.title = title
@@ -460,6 +460,8 @@ class Event:
         self.image_url = image_url
         self.created_at = created_at
         self.updated_at = updated_at
+        self.is_archived = is_archived
+        self.archived_at = archived_at
 
     def to_dict(self):
         # Helper function to safely convert datetime to ISO format
@@ -482,7 +484,9 @@ class Event:
             "max_attendees": self.max_attendees,
             "image_url": self.image_url,
             "created_at": safe_isoformat(self.created_at),
-            "updated_at": safe_isoformat(self.updated_at)
+            "updated_at": safe_isoformat(self.updated_at),
+            "is_archived": self.is_archived,
+            "archived_at": safe_isoformat(self.archived_at)
         }
 
     @staticmethod
@@ -511,13 +515,18 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_events(q=None, page: int = 1, per_page: int = 20, sort_by: str = "StartTime", sort_dir: str = "ASC"):
+    def get_events(q=None, page: int = 1, per_page: int = 20, sort_by: str = "StartTime", sort_dir: str = "ASC", include_archived: bool = False):
         """
         Simplified search: only supports a free-text query `q` (matches Title/Description/Location)
         plus pagination and simple sorting. Returns dict { events: [Event,...], total: int }.
+        By default, excludes archived events unless include_archived=True.
         """
         clauses = []
         params = []
+
+        # Exclude archived events by default
+        if not include_archived:
+            clauses.append("IsArchived = 0")
 
         if q:
             like = f"%{q}%"
@@ -578,7 +587,9 @@ class Event:
                     max_attendees=row[8],
                     image_url=row[9],
                     created_at=row[10],
-                    updated_at=row[11]
+                    updated_at=row[11],
+                    is_archived=bool(row[12]) if len(row) > 12 else False,
+                    archived_at=row[13] if len(row) > 13 else None
                 )
                 for row in rows
             ]
@@ -588,11 +599,15 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_all_events():
+    def get_all_events(include_archived=False):
+        """Get all events. By default excludearchived events."""
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT * FROM Events")
+            if include_archived:
+                cursor.execute("SELECT * FROM Events")
+            else:
+                cursor.execute("SELECT * FROM Events WHERE IsArchived = 0")
             rows = cursor.fetchall()
 
             # Convert rows to Event objects
@@ -609,7 +624,9 @@ class Event:
                     max_attendees=row[8],
                     image_url=row[9],
                     created_at=row[10],
-                    updated_at=row[11]
+                    updated_at=row[11],
+                    is_archived=bool(row[12]) if len(row) > 12 else False,
+                    archived_at=row[13] if len(row) > 13 else None
                 )
                 for row in rows
             ]
@@ -621,12 +638,17 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_event_by_id(event_id):
+    def get_event_by_id(event_id, include_archived=False):
+        """Get event by ID. By default exclude archived events."""
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute(
-                "SELECT * FROM Events WHERE EventID = ?", (event_id,))
+            if include_archived:
+                cursor.execute(
+                    "SELECT * FROM Events WHERE EventID = ?", (event_id,))
+            else:
+                cursor.execute(
+                    "SELECT * FROM Events WHERE EventID = ? AND IsArchived = 0", (event_id,))
             row = cursor.fetchone()
             if row:
                 return Event(
@@ -641,7 +663,9 @@ class Event:
                     max_attendees=row[8],
                     image_url=row[9],
                     created_at=row[10],
-                    updated_at=row[11]
+                    updated_at=row[11],
+                    is_archived=bool(row[12]) if len(row) > 12 else False,
+                    archived_at=row[13] if len(row) > 13 else None
                 )
             return None
         except Exception as e:
@@ -683,7 +707,47 @@ class Event:
             conn.close()
 
     @staticmethod
+    def archive_event(event_id, organizer_uid):
+        """Archive an event. Only the organizer can archive their events."""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Verify event exists and user is the organizer
+            cursor.execute(
+                "SELECT OrganizerUID, IsArchived FROM Events WHERE EventID = ?", (event_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None  # Event not found
+            if row[0] != organizer_uid:
+                return False  # Not authorized
+            if row[1]:  # Already archived
+                return None  # Already archived
+
+            # Archive the event
+            cursor.execute(
+                """
+                UPDATE Events 
+                SET IsArchived = 1, ArchivedAt = GETDATE(), UpdatedAt = GETDATE() 
+                WHERE EventID = ?
+                """,
+                (event_id,)
+            )
+            conn.commit()
+
+            # Return the updated event
+            return Event.get_event_by_id(event_id, include_archived=True)
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
     def delete_event(event_id, organizer_uid):
+        """
+        Permanently delete an event. Only the organizer can delete their events.
+        Note: Organization users should typically use archive_event instead.
+        """
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
@@ -693,7 +757,7 @@ class Event:
             if not row or row[0] != organizer_uid:
                 return False
 
-            cursor.execute("DELETE FROM Events WHERE EventID = ?", (event_id))
+            cursor.execute("DELETE FROM Events WHERE EventID = ?", (event_id,))
             conn.commit()
             return True
         except Exception as e:
@@ -703,21 +767,33 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_events_by_organizer(organizer_uid):
-        """Get all events organized by a specific user"""
+    def get_events_by_organizer(organizer_uid, include_archived=False):
+        """Get all events organized by a specific user. By default, excludes archived events."""
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute(
-                """
-                SELECT EventID, OrganizerUID, Title, Description, StartTime, EndTime, Location, 
-                       CategoryID, MaxAttendees, ImageURL, CreatedAt, UpdatedAt
-                FROM Events 
-                WHERE OrganizerUID = ?
-                ORDER BY StartTime ASC
-                """,
-                (organizer_uid,)
-            )
+            if include_archived:
+                cursor.execute(
+                    """
+                    SELECT EventID, OrganizerUID, Title, Description, StartTime, EndTime, Location, 
+                           CategoryID, MaxAttendees, ImageURL, CreatedAt, UpdatedAt, IsArchived, ArchivedAt
+                    FROM Events 
+                    WHERE OrganizerUID = ?
+                    ORDER BY StartTime ASC
+                    """,
+                    (organizer_uid,)
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT EventID, OrganizerUID, Title, Description, StartTime, EndTime, Location, 
+                           CategoryID, MaxAttendees, ImageURL, CreatedAt, UpdatedAt, IsArchived, ArchivedAt
+                    FROM Events 
+                    WHERE OrganizerUID = ? AND IsArchived = 0
+                    ORDER BY StartTime ASC
+                    """,
+                    (organizer_uid,)
+                )
             rows = cursor.fetchall()
 
             events = [
@@ -733,7 +809,9 @@ class Event:
                     max_attendees=row[8],
                     image_url=row[9],
                     created_at=row[10],
-                    updated_at=row[11]
+                    updated_at=row[11],
+                    is_archived=bool(row[12]) if len(row) > 12 else False,
+                    archived_at=row[13] if len(row) > 13 else None
                 )
                 for row in rows
             ]
@@ -745,18 +823,19 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_events_by_attendee(user_uid):
-        """Get all events that a user is attending (has RSVP'd 'Going' to), excluding events they organized"""
+    def get_events_by_attendee(user_uid, include_archived=False):
+        """Get all events that a user is attending (has RSVP'd 'Going' to), excluding events they organized and archived events by default"""
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
+            archived_condition = "" if include_archived else "AND e.IsArchived = 0"
             cursor.execute(
-                """
+                f"""
                 SELECT e.EventID, e.OrganizerUID, e.Title, e.Description, e.StartTime, e.EndTime, e.Location, 
-                       e.CategoryID, e.MaxAttendees, e.ImageURL, e.CreatedAt, e.UpdatedAt
+                       e.CategoryID, e.MaxAttendees, e.ImageURL, e.CreatedAt, e.UpdatedAt, e.IsArchived, e.ArchivedAt
                 FROM Events e
                 INNER JOIN RSVPs r ON e.EventID = r.EventID
-                WHERE r.UserUID = ? AND r.Status = 'Going' AND e.OrganizerUID != ?
+                WHERE r.UserUID = ? AND r.Status = 'Going' AND e.OrganizerUID != ? {archived_condition}
                 ORDER BY e.StartTime ASC
                 """,
                 (user_uid, user_uid)
@@ -776,7 +855,9 @@ class Event:
                     max_attendees=row[8],
                     image_url=row[9],
                     created_at=row[10],
-                    updated_at=row[11]
+                    updated_at=row[11],
+                    is_archived=bool(row[12]) if len(row) > 12 else False,
+                    archived_at=row[13] if len(row) > 13 else None
                 )
                 for row in rows
             ]
@@ -788,19 +869,21 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_friend_events(firebase_uid):
-        # Events that friends the user is following are attending or interested in
+    def get_friend_events(firebase_uid, include_archived=False):
+        """Events that friends the user is following are attending or interested in. Excludes archived events by default."""
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
+            archived_condition = "" if include_archived else "AND e.IsArchived = 0"
             cursor.execute(
-                """
+                f"""
                 SELECT DISTINCT e.*
                 FROM Events e
                 JOIN RSVPs r ON e.EventID = r.EventID
                 JOIN SocialConnections s ON s.FollowingUID = r.UserUID
                 WHERE s.FollowerUID = ?
                   AND r.Status IN ('Going', 'Interested')
+                  {archived_condition}
                 """,
                 (firebase_uid,)
             )
@@ -820,6 +903,8 @@ class Event:
                         image_url=row[9],
                         created_at=row[10],
                         updated_at=row[11],
+                        is_archived=bool(row[12]) if len(row) > 12 else False,
+                        archived_at=row[13] if len(row) > 13 else None
                     )
                     for row in rows
                 ]
@@ -830,17 +915,19 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_friend_created_events(firebase_uid):
-        # Events created by friends the user is following
+    def get_friend_created_events(firebase_uid, include_archived=False):
+        """Events created by friends the user is following. Excludes archived events by default."""
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
+            archived_condition = "AND e.IsArchived = 0" if not include_archived else ""
             cursor.execute(
-                """
+                f"""
                 SELECT e.*
                 FROM Events e
                 JOIN SocialConnections s ON s.FollowingUID = e.OrganizerUID
                 WHERE s.FollowerUID = ?
+                  {archived_condition}
                 """,
                 (firebase_uid,)
             )
@@ -860,6 +947,8 @@ class Event:
                         image_url=row[9],
                         created_at=row[10],
                         updated_at=row[11],
+                        is_archived=bool(row[12]) if len(row) > 12 else False,
+                        archived_at=row[13] if len(row) > 13 else None
                     )
                     for row in rows
                 ]
