@@ -319,3 +319,110 @@ export async function getFriendFeed(idToken) {
 export async function getRecommendations(userId) {
     return apiRequest(`/recommendations/${userId}`, { method: "GET" });
 }
+
+//===============================
+// ===== Social Functions =====
+//===============================
+
+/**
+ * Follow a user by their Firebase UID or username.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @param {string} targetUid - The Firebase UID of the user to follow.
+ * @param {string} targetUsername - The username of the user to follow (alternative to targetUid).
+ * @returns {Promise<object>} Success confirmation.
+ */
+export async function followUser(idToken, targetUid = null, targetUsername = null) {
+    const body = {};
+    if (targetUid) body.firebase_uid = targetUid;
+    if (targetUsername) body.username = targetUsername;
+    
+    return apiRequest("/api/social/follow", {
+        method: "POST",
+        body: JSON.stringify(body),
+    }, idToken);
+}
+
+/**
+ * Unfollow a user by their Firebase UID or username.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @param {string} targetUid - The Firebase UID of the user to unfollow.
+ * @param {string} targetUsername - The username of the user to unfollow (alternative to targetUid).
+ * @returns {Promise<object>} Success confirmation.
+ */
+export async function unfollowUser(idToken, targetUid = null, targetUsername = null) {
+    const body = {};
+    if (targetUid) body.firebase_uid = targetUid;
+    if (targetUsername) body.username = targetUsername;
+    
+    return apiRequest("/api/social/unfollow", {
+        method: "POST",
+        body: JSON.stringify(body),
+    }, idToken);
+}
+
+/**
+ * Check if the current user is following another user.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @param {string} targetUid - The Firebase UID of the target user.
+ * @returns {Promise<object>} Object containing is_following boolean.
+ */
+export async function checkFollowingStatus(idToken, targetUid) {
+    return apiRequest(`/api/social/following/${targetUid}`, {
+        method: "GET"
+    }, idToken);
+}
+
+/**
+ * Get the list of users the current user is following.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @returns {Promise<object>} Object containing following list and count.
+ */
+export async function getFollowing(idToken) {
+    return apiRequest("/api/social/following", {
+        method: "GET"
+    }, idToken);
+}
+
+/**
+ * Get the list of users following the current user.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @returns {Promise<object>} Object containing followers list and count.
+ */
+export async function getFollowers(idToken) {
+    return apiRequest("/api/social/followers", {
+        method: "GET"
+    }, idToken);
+}
+
+/**
+ * Get public user information by Firebase UID.
+ * @param {string} firebaseUid - The Firebase UID of the user.
+ * @returns {Promise<object>} Object containing public user information.
+ */
+export async function getUserPublicInfo(firebaseUid) {
+    return apiRequest(`/api/user/${firebaseUid}/public`, {
+        method: "GET"
+    });
+}
+
+/**
+ * Get organizations that the current user is following.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @returns {Promise<object>} Object containing followed organizations list.
+ */
+export async function getFollowedOrganizations(idToken) {
+    return apiRequest("/api/user/followed-organizations", {
+        method: "GET"
+    }, idToken);
+}
+
+/**
+ * Get events from an organization.
+ * @param {number} orgId - The organization ID.
+ * @returns {Promise<object>} Object containing organization events.
+ */
+export async function getOrganizationEvents(orgId) {
+    return apiRequest(`/api/organizations/${orgId}/events`, {
+        method: "GET"
+    });
+}

@@ -38,10 +38,55 @@
     margin-bottom: 2rem;
 }
 
+.event-title-section {
+    flex: 1;
+}
+
 .event-title {
     font-size: 2.5rem;
-    margin: 0;
+    margin: 0 0 1rem 0;
     line-height: 1.2;
+}
+
+.organizer-follow-section {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.organizer-label {
+    color: #666;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+.organizer-label strong {
+    color: #333;
+    font-weight: 600;
+}
+
+.event-follow-button {
+    font-size: 0.85rem;
+    min-width: 70px;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 768px) {
+    .event-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .organizer-follow-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .event-category-tag {
+        align-self: flex-start;
+        margin-top: 1rem;
+    }
 }
 
 .event-category-tag {

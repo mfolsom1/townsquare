@@ -67,7 +67,16 @@ GAINESVILLE_INTERESTS = [
 GAINESVILLE_TAGS = [
     "Free Food", "Family Friendly", "21+", "Outdoor", "UF Sponsored",
     "Dog Friendly", "Live Band", "Networking", "Student Discount", "Go Gators",
-    "Downtown GNV", "Support Local", "Craft Fair"
+    "Downtown GNV", "Craft Fair"
+]
+
+# Gainesville-themed organizations
+GAINESVILLE_ORGANIZATIONS = [
+    ("UF Student Government", "The official student government representing all University of Florida students and advocating for student interests."),
+    ("Gator Gaming Guild", "A community of UF students and locals passionate about board games, video games, and tabletop RPGs."),
+    ("Gainesville Tech Meetup", "Monthly gatherings for developers, entrepreneurs, and tech enthusiasts in the Gainesville area."),
+    ("Alachua Audubon Society", "Dedicated to conservation and appreciation of birds and their habitats in North Central Florida."),
+    ("Downtown Gainesville Merchants", "Local business owners working together to promote and enhance the downtown Gainesville experience.")
 ]
 
 # --- SCRIPT START ---
@@ -79,11 +88,11 @@ def clear_database(cursor):
     print("🗑️  Clearing existing data from tables...")
     tables_to_clear = [
         "UserActivity", "RSVPs", "SocialConnections", "UserInterests",
-        "EventTagAssignments", "Events", "Users", "Interests", "EventTags",
-        "EventCategories"
+        "EventTagAssignments", "UserOrgMemberships", "UserOrgFollows", "Events", "Users", "Interests", "EventTags",
+        "EventCategories", "Organizations"
     ]
     tables_with_identity = [
-        "Events", "Interests", "EventTags", "EventCategories"
+        "Events", "Interests", "EventTags", "EventCategories", "Organizations"
     ]
 
     for table in tables_to_clear:
@@ -141,6 +150,12 @@ def populate_data(conn, cursor):
         cursor.execute("SELECT TagID FROM EventTags")
         tag_ids = [row.TagID for row in cursor.fetchall()]
         print("  - Populated EventTags")
+        
+        # Organizations
+        cursor.executemany("INSERT INTO Organizations (Name, Description) VALUES (?, ?)", GAINESVILLE_ORGANIZATIONS)
+        cursor.execute("SELECT OrgID FROM Organizations")
+        org_ids = [row.OrgID for row in cursor.fetchall()]
+        print("  - Populated Organizations")
         print("✅ Independent tables populated.\n")
 
         # 2. Populate Users
@@ -230,6 +245,30 @@ def populate_data(conn, cursor):
                 rsvps_data.add((uid, eid, status))
         cursor.executemany("INSERT INTO RSVPs (UserUID, EventID, Status) VALUES (?, ?, ?)", list(rsvps_data))
         print(f"  - Populated {len(rsvps_data)} RSVPs")
+
+        # UserOrgMemberships - assign about half the users to organizations
+        org_memberships_data = set()
+        users_to_assign = random.sample(user_uids, k=len(user_uids) // 2)
+        for uid in users_to_assign:
+            # Each user joins 1-2 organizations
+            num_orgs = random.randint(1, min(2, len(org_ids)))
+            for org_id in random.sample(org_ids, k=num_orgs):
+                org_memberships_data.add((uid, org_id))
+        cursor.executemany("INSERT INTO UserOrgMemberships (UserUID, OrgID) VALUES (?, ?)", list(org_memberships_data))
+        print(f"  - Populated {len(org_memberships_data)} UserOrgMemberships")
+        
+        # UserOrgFollows - some users follow organizations without being members
+        org_follows_data = set()
+        # Get users not in any organization and have some of them follow organizations
+        non_member_users = [uid for uid in user_uids if uid not in [membership[0] for membership in org_memberships_data]]
+        users_to_follow = random.sample(non_member_users, k=min(len(non_member_users), len(non_member_users) // 3))
+        for uid in users_to_follow:
+            # Each user follows 1-3 organizations
+            num_follows = random.randint(1, min(3, len(org_ids)))
+            for org_id in random.sample(org_ids, k=num_follows):
+                org_follows_data.add((uid, org_id))
+        cursor.executemany("INSERT INTO UserOrgFollows (UserUID, OrgID) VALUES (?, ?)", list(org_follows_data))
+        print(f"  - Populated {len(org_follows_data)} UserOrgFollows")
         print("✅ Relationship tables populated.\n")
 
         conn.commit()

@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask import Flask, jsonify, request
-from .models import Event, RSVP
+from .models import Event, RSVP, Organization
 from firebase_admin import auth
 from .models import User
 from .auth_utils import require_auth
@@ -409,6 +409,27 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": f"Failed to get followers list: {str(e)}"}), 500
     
+    @app.route('/api/user/<firebase_uid>/public', methods=['GET'])
+    def get_user_public_info(firebase_uid):
+        """Get public user information by Firebase UID"""
+        try:
+            user = User.get_user_by_firebase_uid(firebase_uid)
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+            
+            return jsonify({
+                "success": True,
+                "user": {
+                    "firebase_uid": user.firebase_uid,
+                    "username": user.username,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "location": user.location
+                }
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get user info: {str(e)}"}), 500
+    
     # ===== Event functions ===== #
     @app.route('/events', methods=['GET'])
     def get_events():
@@ -579,7 +600,8 @@ def register_routes(app):
                 location=data['Location'],
                 category_id=data['CategoryID'], # Now a required field
                 max_attendees=data.get('MaxAttendees'),
-                image_url=data.get('ImageURL')
+                image_url=data.get('ImageURL'),
+                org_id=data.get('OrgID')  # Optional organization ID
             )
 
             return jsonify({
@@ -701,3 +723,207 @@ def register_routes(app):
             })
         except Exception as e:
             return jsonify({"error": f"Failed to get friend feed: {str(e)}"}), 500
+
+    # ===== Organization Routes =====
+    @app.route('/api/organizations', methods=['GET'])
+    def get_all_organizations():
+        """Get all organizations"""
+        try:
+            organizations = Organization.get_all_organizations()
+            return jsonify({
+                "success": True,
+                "organizations": [org.to_dict() for org in organizations]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get organizations: {str(e)}"}), 500
+
+    @app.route('/api/organizations', methods=['POST'])
+    @require_auth
+    def create_organization(firebase_uid):
+        """Create a new organization"""
+        try:
+            data = request.json or {}
+            name = data.get('name', '').strip()
+            description = data.get('description', '').strip() or None
+            
+            if not name:
+                return jsonify({"error": "Organization name is required"}), 400
+            
+            if len(name) > 100:
+                return jsonify({"error": "Organization name must be 100 characters or less"}), 400
+            
+            organization = Organization.create_organization(name, description)
+            return jsonify({
+                "success": True,
+                "message": "Organization created successfully",
+                "organization": organization.to_dict()
+            }), 201
+        except pyodbc.IntegrityError:
+            return jsonify({"error": "Organization with this name already exists"}), 409
+        except Exception as e:
+            return jsonify({"error": f"Failed to create organization: {str(e)}"}), 500
+
+    @app.route('/api/organizations/<int:org_id>', methods=['GET'])
+    def get_organization(org_id):
+        """Get organization by ID"""
+        try:
+            organization = Organization.get_organization_by_id(org_id)
+            if not organization:
+                return jsonify({"error": "Organization not found"}), 404
+            
+            return jsonify({
+                "success": True,
+                "organization": organization.to_dict()
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get organization: {str(e)}"}), 500
+
+    @app.route('/api/organizations/<int:org_id>', methods=['PUT'])
+    @require_auth
+    def update_organization(firebase_uid, org_id):
+        """Update organization information"""
+        try:
+            data = request.json or {}
+            allowed_fields = ['name', 'description']
+            
+            filtered_data = {k: v for k, v in data.items() 
+                           if k in allowed_fields and v is not None}
+            
+            if not filtered_data:
+                return jsonify({"error": "No valid fields to update"}), 400
+            
+            # Clean up the data
+            if 'name' in filtered_data:
+                filtered_data['name'] = filtered_data['name'].strip()
+                if not filtered_data['name']:
+                    return jsonify({"error": "Organization name cannot be empty"}), 400
+                if len(filtered_data['name']) > 100:
+                    return jsonify({"error": "Organization name must be 100 characters or less"}), 400
+            
+            if 'description' in filtered_data:
+                filtered_data['description'] = filtered_data['description'].strip() or None
+            
+            success = Organization.update_organization(org_id, **filtered_data)
+            if not success:
+                return jsonify({"error": "Organization not found"}), 404
+            
+            # Return updated organization
+            organization = Organization.get_organization_by_id(org_id)
+            return jsonify({
+                "success": True,
+                "message": "Organization updated successfully",
+                "organization": organization.to_dict()
+            })
+        except pyodbc.IntegrityError:
+            return jsonify({"error": "Organization with this name already exists"}), 409
+        except Exception as e:
+            return jsonify({"error": f"Failed to update organization: {str(e)}"}), 500
+
+    # ===== Organization Membership Routes =====
+    @app.route('/api/organizations/<int:org_id>/join', methods=['POST'])
+    @require_auth
+    def join_organization(firebase_uid, org_id):
+        """Join an organization"""
+        try:
+            success = User.join_organization(firebase_uid, org_id)
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "Successfully joined organization"
+                })
+            else:
+                return jsonify({"error": "Already a member of this organization"}), 400
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 404
+        except Exception as e:
+            return jsonify({"error": f"Failed to join organization: {str(e)}"}), 500
+
+    @app.route('/api/organizations/<int:org_id>/leave', methods=['POST'])
+    @require_auth
+    def leave_organization(firebase_uid, org_id):
+        """Leave an organization"""
+        try:
+            success = User.leave_organization(firebase_uid, org_id)
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "Successfully left organization"
+                })
+            else:
+                return jsonify({"error": "Not a member of this organization"}), 400
+        except Exception as e:
+            return jsonify({"error": f"Failed to leave organization: {str(e)}"}), 500
+
+    @app.route('/api/user/organizations', methods=['GET'])
+    @require_auth
+    def get_user_organizations(firebase_uid):
+        """Get user's organization memberships"""
+        try:
+            organizations = User.get_user_organizations(firebase_uid)
+            return jsonify({
+                "success": True,
+                "organizations": organizations
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get user organizations: {str(e)}"}), 500
+
+    # ===== Organization Following Routes =====
+    @app.route('/api/organizations/<int:org_id>/follow', methods=['POST'])
+    @require_auth
+    def follow_organization(firebase_uid, org_id):
+        """Follow an organization"""
+        try:
+            success = User.follow_organization(firebase_uid, org_id)
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "Successfully followed organization"
+                })
+            else:
+                return jsonify({"error": "Already following this organization"}), 400
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 404
+        except Exception as e:
+            return jsonify({"error": f"Failed to follow organization: {str(e)}"}), 500
+
+    @app.route('/api/organizations/<int:org_id>/unfollow', methods=['POST'])
+    @require_auth
+    def unfollow_organization(firebase_uid, org_id):
+        """Unfollow an organization"""
+        try:
+            success = User.unfollow_organization(firebase_uid, org_id)
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": "Successfully unfollowed organization"
+                })
+            else:
+                return jsonify({"error": "Not following this organization"}), 400
+        except Exception as e:
+            return jsonify({"error": f"Failed to unfollow organization: {str(e)}"}), 500
+
+    @app.route('/api/user/followed-organizations', methods=['GET'])
+    @require_auth
+    def get_followed_organizations(firebase_uid):
+        """Get organizations that user is following"""
+        try:
+            organizations = User.get_followed_organizations(firebase_uid)
+            return jsonify({
+                "success": True,
+                "organizations": organizations
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get followed organizations: {str(e)}"}), 500
+
+    # ===== Organization Events Routes =====
+    @app.route('/api/organizations/<int:org_id>/events', methods=['GET'])
+    def get_organization_events(org_id):
+        """Get events posted under an organization"""
+        try:
+            events = Event.get_events_by_organization(org_id)
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get organization events: {str(e)}"}), 500

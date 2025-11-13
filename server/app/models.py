@@ -422,9 +422,334 @@ class User:
             return None
         finally:
             conn.close()
+    
+    # Organization membership methods
+    @staticmethod
+    def join_organization(user_uid, org_id):
+        """Join an organization"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if organization exists
+            cursor.execute("SELECT COUNT(*) FROM Organizations WHERE OrgID = ?", (org_id,))
+            if cursor.fetchone()[0] == 0:
+                raise ValueError("Organization does not exist")
+            
+            # Check if already a member
+            cursor.execute(
+                "SELECT COUNT(*) FROM UserOrgMemberships WHERE UserUID = ? AND OrgID = ?",
+                (user_uid, org_id)
+            )
+            if cursor.fetchone()[0] > 0:
+                return False  # Already a member
+            
+            # Join organization
+            cursor.execute(
+                "INSERT INTO UserOrgMemberships (UserUID, OrgID) VALUES (?, ?)",
+                (user_uid, org_id)
+            )
+            conn.commit()
+            return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def leave_organization(user_uid, org_id):
+        """Leave an organization"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "DELETE FROM UserOrgMemberships WHERE UserUID = ? AND OrgID = ?",
+                (user_uid, org_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_user_organizations(user_uid):
+        """Get organizations that user is a member of"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT o.OrgID, o.Name, o.Description, m.JoinedAt
+                FROM Organizations o
+                INNER JOIN UserOrgMemberships m ON o.OrgID = m.OrgID
+                WHERE m.UserUID = ?
+                ORDER BY m.JoinedAt DESC
+                """,
+                (user_uid,)
+            )
+            rows = cursor.fetchall()
+            return [{
+                "org_id": row[0],
+                "name": row[1],
+                "description": row[2],
+                "joined_at": row[3].isoformat() if hasattr(row[3], 'isoformat') else row[3] if row[3] else None
+            } for row in rows]
+        finally:
+            conn.close()
+    
+    # Organization following methods
+    @staticmethod
+    def follow_organization(user_uid, org_id):
+        """Follow an organization"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if organization exists
+            cursor.execute("SELECT COUNT(*) FROM Organizations WHERE OrgID = ?", (org_id,))
+            if cursor.fetchone()[0] == 0:
+                raise ValueError("Organization does not exist")
+            
+            # Check if already following
+            cursor.execute(
+                "SELECT COUNT(*) FROM UserOrgFollows WHERE UserUID = ? AND OrgID = ?",
+                (user_uid, org_id)
+            )
+            if cursor.fetchone()[0] > 0:
+                return False  # Already following
+            
+            # Follow organization
+            cursor.execute(
+                "INSERT INTO UserOrgFollows (UserUID, OrgID) VALUES (?, ?)",
+                (user_uid, org_id)
+            )
+            conn.commit()
+            return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def unfollow_organization(user_uid, org_id):
+        """Unfollow an organization"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "DELETE FROM UserOrgFollows WHERE UserUID = ? AND OrgID = ?",
+                (user_uid, org_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_followed_organizations(user_uid):
+        """Get organizations that user is following"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT o.OrgID, o.Name, o.Description, f.CreatedAt
+                FROM Organizations o
+                INNER JOIN UserOrgFollows f ON o.OrgID = f.OrgID
+                WHERE f.UserUID = ?
+                ORDER BY f.CreatedAt DESC
+                """,
+                (user_uid,)
+            )
+            rows = cursor.fetchall()
+            return [{
+                "org_id": row[0],
+                "name": row[1],
+                "description": row[2],
+                "followed_at": row[3].isoformat() if hasattr(row[3], 'isoformat') else row[3] if row[3] else None
+            } for row in rows]
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def is_organization_member(user_uid, org_id):
+        """Check if user is a member of an organization"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT COUNT(*) FROM UserOrgMemberships WHERE UserUID = ? AND OrgID = ?",
+                (user_uid, org_id)
+            )
+            return cursor.fetchone()[0] > 0
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def is_following_organization(user_uid, org_id):
+        """Check if user is following an organization"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT COUNT(*) FROM UserOrgFollows WHERE UserUID = ? AND OrgID = ?",
+                (user_uid, org_id)
+            )
+            return cursor.fetchone()[0] > 0
+        finally:
+            conn.close()
+
+class Organization:
+    def __init__(self, org_id, name, description=None, created_at=None, updated_at=None):
+        self.org_id = org_id
+        self.name = name
+        self.description = description
+        self.created_at = created_at
+        self.updated_at = updated_at
+    
+    def to_dict(self):
+        """Convert organization object to dictionary for JSON responses"""
+        def safe_isoformat(dt):
+            if dt is None:
+                return None
+            if hasattr(dt, 'isoformat'):
+                return dt.isoformat()
+            return str(dt)
+        
+        return {
+            "org_id": self.org_id,
+            "name": self.name,
+            "description": self.description,
+            "created_at": safe_isoformat(self.created_at),
+            "updated_at": safe_isoformat(self.updated_at)
+        }
+    
+    @staticmethod
+    def create_organization(name, description=None):
+        """Create a new organization"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO Organizations (Name, Description) OUTPUT INSERTED.OrgID VALUES (?, ?)",
+                (name, description)
+            )
+            org_id = cursor.fetchone()[0]
+            conn.commit()
+            return Organization(org_id, name, description)
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_organization_by_id(org_id):
+        """Get organization by ID"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT OrgID, Name, Description, CreatedAt, UpdatedAt FROM Organizations WHERE OrgID = ?",
+                (org_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return Organization(row[0], row[1], row[2], row[3], row[4])
+            return None
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_organization_by_name(name):
+        """Get organization by name"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT OrgID, Name, Description, CreatedAt, UpdatedAt FROM Organizations WHERE Name = ?",
+                (name,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return Organization(row[0], row[1], row[2], row[3], row[4])
+            return None
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_all_organizations():
+        """Get all organizations"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT OrgID, Name, Description, CreatedAt, UpdatedAt FROM Organizations ORDER BY Name"
+            )
+            rows = cursor.fetchall()
+            return [Organization(row[0], row[1], row[2], row[3], row[4]) for row in rows]
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def update_organization(org_id, **kwargs):
+        """Update organization information"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Build dynamic update query
+            update_fields = []
+            values = []
+            
+            field_mapping = {
+                'name': 'Name',
+                'description': 'Description'
+            }
+            
+            for param_name, db_field in field_mapping.items():
+                if param_name in kwargs:
+                    update_fields.append(f"{db_field} = ?")
+                    values.append(kwargs[param_name])
+            
+            if not update_fields:
+                return False
+            
+            update_fields.append("UpdatedAt = GETDATE()")
+            query = f"UPDATE Organizations SET {', '.join(update_fields)} WHERE OrgID = ?"
+            values.append(org_id)
+            
+            cursor.execute(query, values)
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def delete_organization(org_id):
+        """Delete an organization"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM Organizations WHERE OrgID = ?", (org_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
 
 class Event:
-    def __init__ (self, event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees=None, image_url=None, created_at=None, updated_at=None):
+    def __init__ (self, event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees=None, image_url=None, org_id=None, created_at=None, updated_at=None):
         self.event_id = event_id
         self.organizer_uid = organizer_uid
         self.title = title
@@ -435,6 +760,7 @@ class Event:
         self.category_id = category_id
         self.max_attendees = max_attendees
         self.image_url = image_url
+        self.org_id = org_id
         self.created_at = created_at
         self.updated_at = updated_at
     
@@ -458,28 +784,29 @@ class Event:
             "category_id": self.category_id,
             "max_attendees": self.max_attendees,
             "image_url": self.image_url,
+            "org_id": self.org_id,
             "created_at": safe_isoformat(self.created_at),
             "updated_at": safe_isoformat(self.updated_at)
         }
     
     @staticmethod
-    def create_event(organizer_uid, title, start_time, end_time, location, category_id=None, description=None, max_attendees=None, image_url=None):
+    def create_event(organizer_uid, title, start_time, end_time, location, category_id=None, description=None, max_attendees=None, image_url=None, org_id=None):
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
             # Use OUTPUT clause to get the inserted EventID
             cursor.execute(
                 """
-                INSERT INTO Events (OrganizerUID, Title, Description, StartTime, EndTime, Location, CategoryID, MaxAttendees, ImageURL)
+                INSERT INTO Events (OrganizerUID, Title, Description, StartTime, EndTime, Location, CategoryID, MaxAttendees, ImageURL, OrgID)
                 OUTPUT INSERTED.EventID
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
+                (organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url, org_id)
             )
             event_id = cursor.fetchone()[0]
             conn.commit()
 
-            return Event(event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url)
+            return Event(event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees, image_url, org_id)
         except Exception as e:
             conn.rollback()
             raise e
@@ -552,8 +879,9 @@ class Event:
                         category_id=row[7],
                         max_attendees=row[8],
                         image_url=row[9],
-                        created_at=row[10],
-                        updated_at=row[11]
+                        org_id=row[10],
+                        created_at=row[11],
+                        updated_at=row[12]
                     )
                     for row in rows
                 ]
@@ -583,8 +911,9 @@ class Event:
                     category_id=row[7],
                     max_attendees=row[8],
                     image_url=row[9],
-                    created_at=row[10],
-                    updated_at=row[11]
+                    org_id=row[10],
+                    created_at=row[11],
+                    updated_at=row[12]
                 )
                 for row in rows
             ]
@@ -614,8 +943,9 @@ class Event:
                     category_id=row[7],
                     max_attendees=row[8],
                     image_url=row[9],
-                    created_at=row[10],
-                    updated_at=row[11]
+                    org_id=row[10],
+                    created_at=row[11],
+                    updated_at=row[12]
                 )
             return None
         except Exception as e:
@@ -682,7 +1012,7 @@ class Event:
             cursor.execute(
                 """
                 SELECT EventID, OrganizerUID, Title, Description, StartTime, EndTime, Location, 
-                       CategoryID, MaxAttendees, ImageURL, CreatedAt, UpdatedAt
+                       CategoryID, MaxAttendees, ImageURL, OrgID, CreatedAt, UpdatedAt
                 FROM Events 
                 WHERE OrganizerUID = ?
                 ORDER BY StartTime ASC
@@ -703,8 +1033,9 @@ class Event:
                     category_id=row[7],
                     max_attendees=row[8],
                     image_url=row[9],
-                    created_at=row[10],
-                    updated_at=row[11]
+                    org_id=row[10],
+                    created_at=row[11],
+                    updated_at=row[12]
                 )
                 for row in rows
             ]
@@ -724,7 +1055,7 @@ class Event:
             cursor.execute(
                 """
                 SELECT e.EventID, e.OrganizerUID, e.Title, e.Description, e.StartTime, e.EndTime, e.Location, 
-                       e.CategoryID, e.MaxAttendees, e.ImageURL, e.CreatedAt, e.UpdatedAt
+                       e.CategoryID, e.MaxAttendees, e.ImageURL, e.OrgID, e.CreatedAt, e.UpdatedAt
                 FROM Events e
                 INNER JOIN RSVPs r ON e.EventID = r.EventID
                 WHERE r.UserUID = ? AND r.Status = 'Going' AND e.OrganizerUID != ?
@@ -746,8 +1077,9 @@ class Event:
                     category_id=row[7],
                     max_attendees=row[8],
                     image_url=row[9],
-                    created_at=row[10],
-                    updated_at=row[11]
+                    org_id=row[10],
+                    created_at=row[11],
+                    updated_at=row[12]
                 )
                 for row in rows
             ]
@@ -760,18 +1092,17 @@ class Event:
 
     @staticmethod
     def get_friend_events(firebase_uid):
-        # Events that friends the user is following are attending or interested in
+        # Events created/organized by people the user is following (based on SocialConnections table)
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
             cursor.execute(
                 """
-                SELECT DISTINCT e.*
+                SELECT e.*
                 FROM Events e
-                JOIN RSVPs r ON e.EventID = r.EventID
-                JOIN SocialConnections s ON s.FollowingUID = r.UserUID
+                JOIN SocialConnections s ON s.FollowingUID = e.OrganizerUID
                 WHERE s.FollowerUID = ?
-                  AND r.Status IN ('Going', 'Interested')
+                ORDER BY e.StartTime ASC
                 """,
                 (firebase_uid,)
             )
@@ -789,8 +1120,9 @@ class Event:
                         category_id=row[7],
                         max_attendees=row[8],
                         image_url=row[9],
-                        created_at=row[10],
-                        updated_at=row[11],
+                        org_id=row[10],
+                        created_at=row[11],
+                        updated_at=row[12],
                     )
                     for row in rows
                 ]
@@ -802,43 +1134,9 @@ class Event:
 
     @staticmethod
     def get_friend_created_events(firebase_uid):
-        # Events created by friends the user is following
-        conn = DatabaseConnection.get_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute(
-                """
-                SELECT e.*
-                FROM Events e
-                JOIN SocialConnections s ON s.FollowingUID = e.OrganizerUID
-                WHERE s.FollowerUID = ?
-                """,
-                (firebase_uid,)
-            )
-            rows = cursor.fetchall()
-            if rows:
-                return [
-                    Event(
-                        event_id=row[0],
-                        organizer_uid=row[1],
-                        title=row[2],
-                        description=row[3],
-                        start_time=row[4],
-                        end_time=row[5],
-                        location=row[6],
-                        category_id=row[7],
-                        max_attendees=row[8],
-                        image_url=row[9],
-                        created_at=row[10],
-                        updated_at=row[11],
-                    )
-                    for row in rows
-                ]
-            return []
-        except Exception as e:
-            raise e
-        finally:
-            conn.close()
+        # This method is now redundant with get_friend_events since both return events created by followed users
+        # Keeping for backward compatibility but delegating to get_friend_events
+        return Event.get_friend_events(firebase_uid)
 
     @staticmethod
     def get_friend_feed(firebase_uid):
@@ -848,6 +1146,49 @@ class Event:
         combined = attending + [e for e in created if e not in attending]
         combined.sort(key=lambda e: e.start_time)
         return combined
+    
+    @staticmethod
+    def get_events_by_organization(org_id):
+        """Get all events posted under an organization"""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT EventID, OrganizerUID, Title, Description, StartTime, EndTime, Location, 
+                       CategoryID, MaxAttendees, ImageURL, OrgID, CreatedAt, UpdatedAt
+                FROM Events 
+                WHERE OrgID = ?
+                ORDER BY StartTime ASC
+                """,
+                (org_id,)
+            )
+            rows = cursor.fetchall()
+            
+            events = [
+                Event(
+                    event_id=row[0],
+                    organizer_uid=row[1],
+                    title=row[2],
+                    description=row[3],
+                    start_time=row[4],
+                    end_time=row[5],
+                    location=row[6],
+                    category_id=row[7],
+                    max_attendees=row[8],
+                    image_url=row[9],
+                    org_id=row[10],
+                    created_at=row[11],
+                    updated_at=row[12]
+                )
+                for row in rows
+            ]
+            
+            return events
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
 
 class RSVP:
     def __init__(self, rsvp_id, user_uid, event_id, status, created_at=None, updated_at=None):

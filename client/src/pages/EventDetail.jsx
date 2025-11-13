@@ -5,9 +5,11 @@ import {
   createOrUpdateRsvp,
   deleteRsvp,
   getUserRsvps,
+  getUserPublicInfo,
 } from "../api"; // Make sure the path to your api.js is correct
 import { useAuth } from "../auth/AuthContext";
 import RsvpModal from "../components/RsvpModal";
+import FollowButton from "../components/FollowButton";
 import "./EventDetail.css";
 
 // Re-using the same helpers from the Discover page for consistency
@@ -47,6 +49,7 @@ export default function EventDetail() {
   const navigate = useNavigate(); // optional
 
   const [event, setEvent] = useState(null);
+  const [organizer, setOrganizer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -59,7 +62,19 @@ export default function EventDetail() {
     const fetchEvent = async () => {
       try {
         const response = await getEventById(eventId);
-        setEvent(response.event);
+        const eventData = response.event;
+        setEvent(eventData);
+
+        // Fetch organizer info
+        if (eventData.organizer_uid) {
+          try {
+            const organizerResponse = await getUserPublicInfo(eventData.organizer_uid);
+            setOrganizer(organizerResponse.user);
+          } catch (err) {
+            console.warn("Failed to fetch organizer info:", err);
+            // Not critical, so we don't set error state
+          }
+        }
       } catch (err) {
         setError(err.message || "Failed to load event details.");
       } finally {
@@ -188,7 +203,19 @@ export default function EventDetail() {
         />
 
         <div className="event-header">
-          <h1 className="event-title">{event.title}</h1>
+          <div className="event-title-section">
+            <h1 className="event-title">{event.title}</h1>
+            <div className="organizer-follow-section">
+              <span className="organizer-label">
+                Organized by: <strong>{organizer ? `@${organizer.username}` : 'Loading...'}</strong>
+              </span>
+              <FollowButton 
+                targetUid={event.organizer_uid}
+                targetUsername={organizer?.username}
+                className="event-follow-button"
+              />
+            </div>
+          </div>
           <span
             className="event-category-tag"
             style={{ backgroundColor: color }}

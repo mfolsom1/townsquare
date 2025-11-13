@@ -26,6 +26,18 @@ CREATE TABLE EventCategories (
 -- Index for category lookups
 CREATE INDEX idx_eventcategories_name ON EventCategories (Name);
 
+-- Organizations table
+CREATE TABLE Organizations (
+    OrgID INT IDENTITY(1,1) PRIMARY KEY,
+    Name NVARCHAR(100) NOT NULL UNIQUE,
+    Description NVARCHAR(1000),
+    CreatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME2 DEFAULT GETDATE() NOT NULL
+);
+
+-- Index for organization name lookups
+CREATE INDEX idx_organizations_name ON Organizations (Name);
+
 -- Events table
 CREATE TABLE Events (
     EventID INT IDENTITY(1,1) PRIMARY KEY,
@@ -38,17 +50,20 @@ CREATE TABLE Events (
     CategoryID INT NOT NULL,
     MaxAttendees INT CHECK (MaxAttendees IS NULL OR MaxAttendees >= 0),
     ImageURL NVARCHAR(500),
+    OrgID INT NULL, -- Events can optionally be posted under an organization
     CreatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
     UpdatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
     CONSTRAINT chk_event_time CHECK (EndTime > StartTime),
     CONSTRAINT FK_Events_Organizer FOREIGN KEY (OrganizerUID) REFERENCES Users(FirebaseUID),
-    CONSTRAINT FK_Events_Category FOREIGN KEY (CategoryID) REFERENCES EventCategories(CategoryID)
+    CONSTRAINT FK_Events_Category FOREIGN KEY (CategoryID) REFERENCES EventCategories(CategoryID),
+    CONSTRAINT FK_Events_Organization FOREIGN KEY (OrgID) REFERENCES Organizations(OrgID)
 );
 
 -- Indexes for Events
 CREATE INDEX idx_events_organizer ON Events (OrganizerUID);
 CREATE INDEX idx_events_category_starttime ON Events (CategoryID, StartTime);
 CREATE INDEX idx_events_starttime ON Events (StartTime);
+CREATE INDEX idx_events_organization ON Events (OrgID);
 
 -- EventTags table
 CREATE TABLE EventTags (
@@ -157,3 +172,29 @@ CREATE TABLE UserActivity (
 -- Indexes for UserActivity
 CREATE INDEX idx_useractivity_user_created ON UserActivity (UserUID, CreatedAt DESC);
 CREATE INDEX idx_useractivity_target ON UserActivity (TargetID);
+
+-- UserOrgMemberships table (many-to-many: Users <-> Organizations)
+CREATE TABLE UserOrgMemberships (
+    UserUID NVARCHAR(128) NOT NULL,
+    OrgID INT NOT NULL,
+    JoinedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
+    CONSTRAINT PK_UserOrgMemberships PRIMARY KEY (UserUID, OrgID),
+    CONSTRAINT FK_UserOrgMemberships_User FOREIGN KEY (UserUID) REFERENCES Users(FirebaseUID) ON DELETE CASCADE,
+    CONSTRAINT FK_UserOrgMemberships_Org FOREIGN KEY (OrgID) REFERENCES Organizations(OrgID) ON DELETE CASCADE
+);
+
+-- Supporting index for reverse lookups
+CREATE INDEX idx_userorgs_org_user ON UserOrgMemberships (OrgID, UserUID);
+
+-- UserOrgFollows table (many-to-many: Users following Organizations)
+CREATE TABLE UserOrgFollows (
+    UserUID NVARCHAR(128) NOT NULL,
+    OrgID INT NOT NULL,
+    CreatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
+    CONSTRAINT PK_UserOrgFollows PRIMARY KEY (UserUID, OrgID),
+    CONSTRAINT FK_UserOrgFollows_User FOREIGN KEY (UserUID) REFERENCES Users(FirebaseUID) ON DELETE CASCADE,
+    CONSTRAINT FK_UserOrgFollows_Org FOREIGN KEY (OrgID) REFERENCES Organizations(OrgID) ON DELETE CASCADE
+);
+
+-- Supporting index for reverse lookups
+CREATE INDEX idx_userorgfollows_org_user ON UserOrgFollows (OrgID, UserUID);
