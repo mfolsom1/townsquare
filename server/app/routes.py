@@ -497,15 +497,34 @@ def register_routes(app):
     @app.route('/api/user/events/organized', methods=['GET'])
     @require_auth
     def get_user_organized_events(firebase_uid):
-        """Get events organized by the current user"""
+        """Get events organized by the current user (excludes archived events by default)"""
         try:
-            events = Event.get_events_by_organizer(firebase_uid)
+            include_archived = request.args.get(
+                'include_archived', 'false').lower() == 'true'
+            events = Event.get_events_by_organizer(
+                firebase_uid, include_archived=include_archived)
             return jsonify({
                 "success": True,
                 "events": [event.to_dict() for event in events]
             })
         except Exception as e:
             return jsonify({"error": f"Failed to get organized events: {str(e)}"}), 500
+
+    @app.route('/api/user/events/archived', methods=['GET'])
+    @require_organization
+    def get_user_archived_events(firebase_uid, user=None):
+        """Get archived events organized by the current organization user"""
+        try:
+            all_events = Event.get_events_by_organizer(
+                firebase_uid, include_archived=True)
+            archived_events = [
+                event for event in all_events if event.is_archived]
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in archived_events]
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get archived events: {str(e)}"}), 500
 
     @app.route('/api/user/events/attending', methods=['GET'])
     @require_auth
@@ -680,11 +699,34 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    @app.route('/events/<int:event_id>/archive', methods=['POST'])
+    @require_organization
+    def archive_event(firebase_uid, event_id, user=None):
+        """Archive an event instead of deleting it permanently"""
+        try:
+            archived_event = Event.archive_event(event_id, firebase_uid)
+
+            if archived_event is None:
+                return jsonify({"error": "Event not found or already archived"}), 404
+            if archived_event is False:
+                return jsonify({"error": "Not authorized to archive this event"}), 403
+
+            return jsonify({
+                "success": True,
+                "message": "Event archived successfully",
+                "archived_event": archived_event.to_dict()
+            }), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     @app.route('/events/<int:event_id>', methods=['DELETE'])
     @require_organization
     def delete_event(firebase_uid, event_id, user=None):
+        """
+        Permanently delete an event. 
+        Note: Organization users should typically use the archive endpoint instead.
+        """
         try:
-
             success = Event.delete_event(event_id, firebase_uid)
 
             if not success:
@@ -692,7 +734,7 @@ def register_routes(app):
 
             return jsonify({
                 "success": True,
-                "message": "Event deleted successfully"
+                "message": "Event permanently deleted"
             }), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500

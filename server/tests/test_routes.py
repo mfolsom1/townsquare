@@ -101,7 +101,7 @@ def test_verify_firebase_token_invalid_token(mock_verify_token, client):
 # ... (other user and auth tests would be similarly refactored) ...
 
 
-@patch('app.auth_utils.auth.verify_id_token')  # CORRECTED PATH
+@patch('app.auth_utils.auth.verify_id_token')
 @patch('app.models.Event.create_event')
 @patch('app.models.User.get_user_by_firebase_uid')
 def test_create_event_success(mock_get_user, mock_create_event, mock_verify_token, client):
@@ -150,7 +150,8 @@ def test_get_events_success(mock_get_events, client):
     assert response.json["events"][0]["title"] == "Community Meetup"
 
 
-@patch('app.auth_utils.auth.verify_id_token')  # CORRECTED PATH
+# CORRECTED PATH TODO: Delete these comments
+@patch('app.auth_utils.auth.verify_id_token')
 @patch('app.models.Event.update_event')
 def test_update_event(mock_update_event, mock_verify_token, client):
     """Test creating an event and then updating it"""
@@ -178,11 +179,11 @@ def test_update_event(mock_update_event, mock_verify_token, client):
     assert update_response.json["updated_event"]["title"] == "Updated Event Title"
 
 
-@patch('app.auth_utils.auth.verify_id_token')  # CORRECTED PATH
+@patch('app.auth_utils.auth.verify_id_token')
 @patch('app.models.Event.delete_event')
 @patch('app.models.User.get_user_by_firebase_uid')
 def test_delete_event_success(mock_get_user, mock_delete_event, mock_verify_token, client):
-    """Test successful event deletion"""
+    """Test successful permanent event deletion"""
     mock_verify_token.return_value = {'uid': 'test-firebase-uid'}
     org_user = Mock()
     org_user.user_type = 'organization'
@@ -196,7 +197,28 @@ def test_delete_event_success(mock_get_user, mock_delete_event, mock_verify_toke
 
     assert response.status_code == 200
     assert response.json["success"] is True
-    assert response.json["message"] == "Event deleted successfully"
+    assert response.json["message"] == "Event permanently deleted"
+    mock_delete_event.assert_called_once_with(1, 'test-firebase-uid')
+
+
+@patch('app.auth_utils.auth.verify_id_token')
+@patch('app.models.Event.delete_event')
+@patch('app.models.User.get_user_by_firebase_uid')
+def test_delete_event_not_found(mock_get_user, mock_delete_event, mock_verify_token, client):
+    """Test deletion of non-existent event"""
+    mock_verify_token.return_value = {'uid': 'test-firebase-uid'}
+    org_user = Mock()
+    org_user.user_type = 'organization'
+    mock_get_user.return_value = org_user
+    mock_delete_event.return_value = False
+
+    response = client.delete(
+        "/events/999",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+
+    assert response.status_code == 404
+    assert response.json["error"] == "Event not found or user not authorized"
 
 
 @patch('app.auth_utils.auth.verify_id_token')
@@ -243,3 +265,168 @@ def test_delete_event_individual(mock_get_user, mock_verify_token, client):
 
     assert resp.status_code == 403
     assert resp.json["error"] == "Organization account required"
+
+
+# ===== Archiving Tests ===== #
+
+
+@patch('app.auth_utils.auth.verify_id_token')
+@patch('app.models.Event.archive_event')
+@patch('app.models.User.get_user_by_firebase_uid')
+def test_archive_event_success(mock_get_user, mock_archive_event, mock_verify_token, client):
+    """Test successful event archiving"""
+    mock_verify_token.return_value = {'uid': 'org-firebase-uid'}
+    org_user = Mock()
+    org_user.user_type = 'organization'
+    mock_get_user.return_value = org_user
+
+    mock_event = Mock()
+    mock_event.to_dict.return_value = {
+        "event_id": 1,
+        "title": "Test Event",
+        "is_archived": True,
+        "archived_at": "2025-11-12T10:00:00"
+    }
+    mock_archive_event.return_value = mock_event
+
+    response = client.post(
+        "/events/1/archive",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+
+    assert response.status_code == 200
+    assert response.json["success"] is True
+    assert response.json["message"] == "Event archived successfully"
+    assert response.json["archived_event"]["is_archived"] is True
+    mock_archive_event.assert_called_once_with(1, 'org-firebase-uid')
+
+
+@patch('app.auth_utils.auth.verify_id_token')
+@patch('app.models.Event.archive_event')
+@patch('app.models.User.get_user_by_firebase_uid')
+def test_archive_event_not_found(mock_get_user, mock_archive_event, mock_verify_token, client):
+    """Test archiving non-existent event"""
+    mock_verify_token.return_value = {'uid': 'org-firebase-uid'}
+    org_user = Mock()
+    org_user.user_type = 'organization'
+    mock_get_user.return_value = org_user
+    mock_archive_event.return_value = None
+
+    response = client.post(
+        "/events/999/archive",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+
+    assert response.status_code == 404
+    assert response.json["error"] == "Event not found or already archived"
+
+
+@patch('app.auth_utils.auth.verify_id_token')
+@patch('app.models.Event.archive_event')
+@patch('app.models.User.get_user_by_firebase_uid')
+def test_archive_event_not_authorized(mock_get_user, mock_archive_event, mock_verify_token, client):
+    """Test archiving event by non-organizer"""
+    mock_verify_token.return_value = {'uid': 'org-firebase-uid'}
+    org_user = Mock()
+    org_user.user_type = 'organization'
+    mock_get_user.return_value = org_user
+    mock_archive_event.return_value = False
+
+    response = client.post(
+        "/events/1/archive",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+
+    assert response.status_code == 403
+    assert response.json["error"] == "Not authorized to archive this event"
+
+
+@patch('app.auth_utils.auth.verify_id_token')
+@patch('app.models.User.get_user_by_firebase_uid')
+def test_archive_event_individual_user(mock_get_user, mock_verify_token, client):
+    """Test that individual users cannot archive events"""
+    mock_verify_token.return_value = {'uid': 'indiv-uid'}
+    indiv = Mock()
+    indiv.user_type = 'individual'
+    mock_get_user.return_value = indiv
+
+    response = client.post(
+        "/events/1/archive",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+
+    assert response.status_code == 403
+    assert response.json["error"] == "Organization account required"
+
+
+@patch('app.auth_utils.auth.verify_id_token')
+@patch('app.models.Event.get_events_by_organizer')
+@patch('app.models.User.get_user_by_firebase_uid')
+def test_get_user_archived_events(mock_get_user, mock_get_events, mock_verify_token, client):
+    """Test getting archived events for organization user"""
+    mock_verify_token.return_value = {'uid': 'org-firebase-uid'}
+    org_user = Mock()
+    org_user.user_type = 'organization'
+    mock_get_user.return_value = org_user
+
+    # Create mock archived and active events
+    archived_event = Mock()
+    archived_event.is_archived = True
+    archived_event.to_dict.return_value = {
+        "event_id": 1,
+        "title": "Archived Event",
+        "is_archived": True
+    }
+
+    active_event = Mock()
+    active_event.is_archived = False
+    active_event.to_dict.return_value = {
+        "event_id": 2,
+        "title": "Active Event",
+        "is_archived": False
+    }
+
+    mock_get_events.return_value = [archived_event, active_event]
+
+    response = client.get(
+        "/api/user/events/archived",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+
+    assert response.status_code == 200
+    assert response.json["success"] is True
+    assert len(response.json["events"]) == 1
+    assert response.json["events"][0]["is_archived"] is True
+    mock_get_events.assert_called_once_with(
+        'org-firebase-uid', include_archived=True)
+
+
+@patch('app.auth_utils.auth.verify_id_token')
+@patch('app.models.Event.get_events_by_organizer')
+def test_get_organized_events_with_archived_param(mock_get_events, mock_verify_token, client):
+    """Test getting organized events with include_archived parameter"""
+    mock_verify_token.return_value = {'uid': 'user-firebase-uid'}
+    mock_event = Mock()
+    mock_event.to_dict.return_value = {"event_id": 1, "title": "Event"}
+    mock_get_events.return_value = [mock_event]
+
+    # Test with include_archived=true
+    response = client.get(
+        "/api/user/events/organized?include_archived=true",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+
+    assert response.status_code == 200
+    mock_get_events.assert_called_once_with(
+        'user-firebase-uid', include_archived=True)
+
+    # Test with include_archived=false (default)
+    mock_get_events.reset_mock()
+    response = client.get(
+        "/api/user/events/organized",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+
+    assert response.status_code == 200
+    mock_get_events.assert_called_once_with(
+        'user-firebase-uid', include_archived=False)
