@@ -48,11 +48,11 @@ export default function NavBar() {
 
         <SearchBar />
 
-        <nav className="ts-center">
+        {/* <nav className="ts-center">
           <NavLink to="/discover" className="ts-tab">Discover</NavLink>
           <NavLink to="/following" className="ts-tab">Following</NavLink>
           <NavLink to="/saved" className="ts-tab">Saved Events</NavLink>
-        </nav>
+        </nav> */}
 
         <div className="ts-right">
           <button className="ts-create-btn" onClick={() => setOpenCreate(true)}>

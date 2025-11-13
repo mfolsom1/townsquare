@@ -18,7 +18,8 @@
   .ts-brand {
     font-size: 24px;
     font-weight: 600;
-    color: #222;
+    font-family: var(--font-heading);
+    color: var(--color-accent);
     text-decoration: none;
   }
   .ts-left { justify-self: start; }

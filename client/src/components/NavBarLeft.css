@@ -1,11 +1,11 @@
 @import "../pages/Style.css";
 
-.ts-nav {
-  position: fixed;
+.lts-nav {
+  position: sticky;
   top: 0;
   left: 0;
   height: 100vh;
-  width: 220px;
+  width: 200px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -15,25 +15,31 @@
   z-index: 1000;
 }
 
-.ts-brand {
+.lts-brand {
   font-size: 22px;
   font-weight: 600;
-  color: #222;
+  font-family: var(--font-heading);
+    color: var(--color-accent);
   text-decoration: none;
   margin-bottom: 24px;
 }
 
-.ts-center {
+.lts-center {
   display: flex;
   flex-direction: column;
   gap: 18px;
   flex: 1;
 }
 
-.ts-tab {
+.lts-tab {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+
   position: relative;
   font-size: 15px;
-  color: #222;
+  color: var(--color-text-dark);
   text-decoration: none;
   opacity: 0.8;
   padding: 8px 12px;
@@ -41,18 +47,18 @@
   transition: background 0.2s, opacity 0.2s;
 }
 
-.ts-tab:hover {
+.lts-tab:hover {
   opacity: 1;
   background: rgba(0, 0, 0, 0.05);
 }
 
-.ts-tab.active {
+.lts-tab.active {
   opacity: 1;
   font-weight: 600;
   background: rgba(0, 0, 0, 0.08);
 }
 
-.ts-right {
+.lts-right {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -60,18 +66,18 @@
   padding-top: 16px;
 }
 
-.ts-create {
+.lts-create {
   font-size: 14px;
   color: #222;
   text-decoration: none;
   font-weight: 500;
 }
 
-.ts-create:hover {
+.lts-create:hover {
   text-decoration: underline;
 }
 
-.ts-icon-btn {
+.lts-icon-btn {
   border: none;
   background: transparent;
   cursor: pointer;
@@ -80,11 +86,11 @@
   border-radius: 999px;
 }
 
-.ts-icon-btn:hover {
+.lts-icon-btn:hover {
   background: #f2f4f7;
 }
 
-.ts-avatar {
+.lts-avatar {
   width: 34px;
   height: 34px;
   border-radius: 999px;
