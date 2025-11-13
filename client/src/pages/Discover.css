@@ -74,9 +74,9 @@
     display: grid;
     /* CHANGE: Increased gap for more separation between cards */
     /* CHANGE: Creates smaller cards by fitting more into a row on larger screens */
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    row-gap: 4rem;
-    column-gap: 3rem;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    row-gap: 5rem;
+    column-gap: 6rem;
 }
 
 /* --- Event Card (The "Box") --- */
@@ -90,7 +90,7 @@
     border: 1px solid #e3e3e3;
     border-radius: 12px;
     /* box-shadow:5px 10px 5px rgba(0,0,0,0.4); */
-    box-shadow: 5px 7px 5px rgba(124, 58, 237, 0.2);
+    box-shadow: 2px 3px 5px rgba(0, 0, 0, 0.2);
     overflow: hidden; /* Ensures the image respects the rounded corners */
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }

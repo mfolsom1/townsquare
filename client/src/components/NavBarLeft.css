@@ -9,9 +9,9 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: var(--color-primary);
+  background: var(--color-navbar-bg);
   border-right: 1px solid var(--color-accent-2);
-  padding: 50px 16px;
+  padding: 60px 16px;
   z-index: 1000;
 }
 

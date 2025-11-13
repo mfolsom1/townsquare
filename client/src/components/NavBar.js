@@ -46,7 +46,9 @@ export default function NavBar() {
           <Link to="/discover" className="ts-brand">Townsquare</Link>
         </div>
 
-        <SearchBar />
+        <div className="ts-search">
+          <SearchBar />
+        </div>
 
         {/* <nav className="ts-center">
           <NavLink to="/discover" className="ts-tab">Discover</NavLink>
