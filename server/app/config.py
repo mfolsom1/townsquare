@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class Config:
     def __init__(self):
         # Azure SQL Database configuration
@@ -11,12 +12,13 @@ class Config:
         self.AZURE_SQL_DATABASE = os.environ.get('DB_DATABASE')
         self.AZURE_SQL_USERNAME = os.environ.get('DB_USERNAME')
         self.AZURE_SQL_PASSWORD = os.environ.get('DB_PASSWORD')
-        
-        # Firebase configuration
-        self.FIREBASE_SERVICE_ACCOUNT_KEY = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
 
-    
+        # Firebase configuration
+        self.FIREBASE_SERVICE_ACCOUNT_KEY = os.environ.get(
+            'GOOGLE_APPLICATION_CREDENTIALS')
+
     # Connection string for Azure SQL
+
     @property
     def azure_sql_connection_string(self):
         return (
@@ -26,6 +28,6 @@ class Config:
             f"UID={self.AZURE_SQL_USERNAME};"
             f"PWD={self.AZURE_SQL_PASSWORD};"
             "Encrypt=yes;"
-            "TrustServerCertificate=no;"
-            "Connection Timeout=30;"
+            "TrustServerCertificate=yes;"
+            "Connection Timeout=60;"
         )
