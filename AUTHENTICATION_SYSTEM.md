@@ -19,21 +19,25 @@ The TownSquare authentication system uses Firebase Authentication for identity m
 ## User Types
 
 ### Individual Users (Default)
-Standard accounts with read and participation permissions. Can browse events, RSVP, follow users, and manage their own profile. Cannot create or manage events.
+Standard accounts with read and participation permissions. Can browse events, RSVP, follow users, and manage their own profile and interests. Cannot create or manage events.
 
 ### Organization Users
 Privileged accounts with full event management capabilities. Includes all individual user permissions plus the ability to create, edit, archive, and delete events they organize.
 
-**User Type Assignment**: Set during registration via `user_type` field. Stored in database Users table and used for authorization checks throughout the application.
+**User Type Assignment**: Set during registration via `userType` field ('individual' or 'organization'). For organization users, `organizationName` field is required. Stored in database Users table as `UserType` and `OrganizationName` columns and used for authorization checks throughout the application.
+
+**Database Fields**:
+- `UserType` VARCHAR(20) DEFAULT 'individual' - User account type
+- `OrganizationName` NVARCHAR(100) NULL - Organization name (required for organization users, NULL for individual users)
 
 ## Authentication Flow
 
 ### Registration
 1. User signs up through Firebase (email/password, Google, etc.)
 2. Firebase returns ID token
-3. Frontend sends token to `/api/auth/verify`
+3. Frontend sends token + user data (username, userType, organizationName) to `/api/auth/verify`
 4. Backend verifies token with Firebase Admin SDK
-5. New user record created in database
+5. New user record created in database with UserType and OrganizationName fields
 6. User data returned to frontend
 
 ### Login
@@ -68,12 +72,12 @@ Extends @require_auth with additional authorization check. Verifies user is an o
 
 ### Users Table
 Stores user profiles with Firebase UID as primary key. Critical fields include:
-- Firebase UID (links to Firebase Authentication)
-- User type (determines authorization level: 'individual' or 'organization')
-- Organization name (optional, for organization users)
-- Standard profile fields (username, email, bio, location)
+- FirebaseUID (VARCHAR) - Links to Firebase Authentication
+- UserType (VARCHAR(20)) - Authorization level: 'individual' or 'organization'
+- OrganizationName (NVARCHAR(100)) - Required for organization users, NULL for individuals
+- Standard profile fields (Username, Email, Bio, Location)
 
-Default user type is 'individual'. Authorization decorators query this field to enforce permissions.
+Default user type is 'individual'. Authorization decorators query UserType field to enforce permissions. Validation ensures organization users have an OrganizationName and individual users do not.
 
 ## API Endpoints by Permission Level
 
@@ -84,21 +88,22 @@ No authentication required. Includes event browsing, event details, and category
 
 ### Authenticated Endpoints (@require_auth)
 Requires any authenticated user. Includes:
-- User profile management
-- RSVP operations
-- Social features (follow/unfollow, friend feeds)
-- User interests management
-- Viewing organized/attending events
+- User profile management (GET/PUT `/api/user/profile`)
+- RSVP operations (POST/DELETE `/api/events/<id>/rsvp`, GET `/api/user/rsvps`)
+- Social features (POST `/api/social/follow|unfollow`, GET `/api/social/following|followers`)
+- User interests management (GET/POST/DELETE `/api/user/interests`)
+- Event browsing (GET `/api/user/events/organized`, GET `/api/user/events/attending`)
+- ML recommendations (GET `/api/recommendations`)
 
 ### Organization-Only Endpoints (@require_organization)
 Requires organization user type. Includes:
-- Event creation
-- Event editing (must be organizer)
-- Event archiving (must be organizer)
-- Event deletion (must be organizer)
-- Archived events retrieval
+- Event creation (POST `/events`)
+- Event editing (PATCH `/events/<id>` - must be organizer)
+- Event archiving (POST `/events/<id>/archive` - must be organizer)
+- Event deletion (DELETE `/events/<id>` - must be organizer, permanent)
+- Archived events retrieval (GET `/api/user/events/archived`)
 
-All organization endpoints verify both authentication and user type before granting access.
+All organization endpoints verify both authentication and user type before granting access. Individual users attempting these operations receive 403 Forbidden errors.
 
 ## User Model
 

@@ -6,6 +6,8 @@ Hybrid recommendation engine combining content-based filtering (sentence embeddi
 
 **Location**: `ml/recommend.py`, `ml/train.py`, `ml/utils.py`
 
+**User Type Support**: The recommendation system supports both individual and organization user types equally. Organization users can receive personalized recommendations, RSVP to events, follow other users, and have their event creation activity influence recommendations just like individual users. The system treats both user types identically for recommendation purposes.
+
 ## Architecture
 
 The system generates recommendations through a multi-stage pipeline:
@@ -51,7 +53,7 @@ Handles the complete training pipeline for generating and updating recommendatio
 
 **Evaluation**: Assesses event coverage, user coverage, and embedding quality, storing metrics for monitoring.
 
-All artifacts saved to `ml/vector_store/` and `ml/model_artifacts/` directories.
+All artifacts saved to `ml/model_artifacts/` directory. Vector embeddings are stored in the centralized `ml/vector_store/` directory at the project root (single source of truth shared between training and server).
 
 ### Utility Classes
 **Location**: `ml/utils.py`
@@ -85,7 +87,7 @@ Retrain weekly or when more than 10% of events have changed. Training updates al
 Execute `python train.py` from the `ml/` directory. Duration: 5-15 minutes for 1000+ events depending on hardware.
 
 ### Output Artifacts
-Training produces vector files (events_vectors.npy), metadata files (JSON), version tracking, and evaluation metrics. All files stored in `ml/vector_store/` and `ml/model_artifacts/` directories.
+Training produces vector files (events_vectors.npy), metadata files (JSON), version tracking, and evaluation metrics. Vector embeddings are stored in the centralized `ml/vector_store/` directory at the project root. Model artifacts and metrics are stored in `ml/model_artifacts/` directory.
 
 ## Configuration
 
@@ -100,26 +102,62 @@ Training parameters control minimum event counts, embedding dimensions, similari
 
 ## Testing
 
-**Location**: `ml/test_mock.py`, `ml/mock_dbc.py`, `ml/fixtures/`
+**Location**: `server/tests/test_ml.py`, `server/tests/test_recommendations.py`, `ml/mock_dbc.py`, `ml/fixtures/`
 
 ### Test Mode
 Set `ML_TEST_MODE=1` to use mock database connector with fixture data. This enables development and testing without database dependencies.
 
+Run tests with: `pytest server/tests/test_ml.py -v`
+
+### User-Specific Testing
+**Location**: `server/tests/test_recommendations.py`
+
+Test recommendations for specific users from server directory:
+```bash
+# Run as pytest test (with output)
+cd server
+python -m pytest tests/test_recommendations.py -s
+
+# Or run directly
+python tests/test_recommendations.py
+```
+
+Configure test user by editing `TEST_USERNAME` variable at top of file (default: 'test_user15'). The script:
+1. Initializes recommendation engine
+2. Looks up user by username
+3. Displays user profile (interests, friends, RSVPs, activities)
+4. Generates hybrid recommendations
+5. Generates friends-only recommendations
+6. Shows top results with scores and friend boosts
+
 ### Fixture Management
 **Location**: `ml/scripts/export_fixture.py`
 
-Export production data to fixture files for testing. Fixtures include events, users, RSVPs, and social connections in JSON format.
+Export production data to fixture files for testing. Fixtures include events, users (with UserType and OrganizationName), RSVPs, and social connections in JSON format.
 
 ## API Integration
 
-The recommendation engine can be exposed via REST API endpoints returning ranked event recommendations with similarity scores, friend boosts, and recommendation sources. Response includes configurable top-K results and strategy metadata.
+The recommendation engine is exposed via REST API endpoints:
+
+**GET `/api/recommendations`** - Get personalized recommendations (requires authentication)
+- Parameters:
+  - `top_k` (optional, default 10): Number of recommendations (1-50)
+  - `strategy` (optional, default 'hybrid'): Recommendation strategy ('hybrid', 'friends_only', 'friends_boosted')
+- Response: Ranked event recommendations with similarity scores, friend boosts, and recommendation sources
+
+**POST `/api/recommendations/refresh`** - Refresh recommendation models (requires authentication)
+- Response: Confirmation of model refresh status
+
+All recommendation endpoints require valid Firebase authentication token in Authorization header.
 
 ## File Structure
 
 **Core Modules**: `ml/recommend.py`, `ml/train.py`, `ml/utils.py`  
-**Testing**: `ml/test_mock.py`, `ml/mock_dbc.py`  
-**Data Storage**: `ml/vector_store/` (embeddings and metadata), `ml/model_artifacts/` (training outputs)  
+**Testing**: `server/tests/test_ml.py`, `ml/mock_dbc.py`  
+**Data Storage**: `ml/vector_store/` (centralized embeddings and metadata - single source of truth), `ml/model_artifacts/` (training outputs and metrics)  
 **Fixtures**: `ml/fixtures/` (test data), `ml/scripts/` (utilities)
+
+Note: The `ml/vector_store/` directory is the single authoritative location for all vector embeddings. Both training scripts and the server read/write to this location.
 
 ## Performance
 

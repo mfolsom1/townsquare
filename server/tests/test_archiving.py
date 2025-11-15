@@ -1,3 +1,10 @@
+"""
+Tests for event archiving system.
+
+Timeline: Event ends → 1 day later auto-archived → 5 days later permanently deleted
+Manual archiving: Organization users can archive their own events at any time
+Deletion: Immediate permanent deletion via DELETE /events/<id> (organization users only)
+"""
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timedelta
@@ -10,25 +17,21 @@ class TestEventArchiving:
     @patch('app.models.DatabaseConnection.get_connection')
     def test_archive_event_success(self, mock_get_conn):
         """Test successfully archiving an event"""
-        # Setup mock connection
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_get_conn.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
 
-        # Mock the SELECT query (event exists, user is organizer, not archived)
         mock_cursor.fetchone.side_effect = [
-            ('org-uid-123', 0),  # First call: OrganizerUID, IsArchived
-            (1, 'org-uid-123', 'Test Event', 'Description',  # Second call: full event
+            ('org-uid-123', 0),
+            (1, 'org-uid-123', 'Test Event', 'Description',
              datetime.now(), datetime.now() + timedelta(hours=2),
              'Location', 1, 100, 'http://image.url',
              datetime.now(), datetime.now(), 1, datetime.now())
         ]
 
-        # Execute
         result = Event.archive_event(1, 'org-uid-123')
 
-        # Assert
         assert result is not None
         assert isinstance(result, Event)
         mock_cursor.execute.assert_called()
@@ -42,7 +45,7 @@ class TestEventArchiving:
         mock_cursor = MagicMock()
         mock_get_conn.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        mock_cursor.fetchone.return_value = None  # Event not found
+        mock_cursor.fetchone.return_value = None
 
         result = Event.archive_event(999, 'org-uid-123')
 
@@ -70,8 +73,7 @@ class TestEventArchiving:
         mock_cursor = MagicMock()
         mock_get_conn.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        mock_cursor.fetchone.return_value = (
-            'org-uid-123', 1)  # Already archived
+        mock_cursor.fetchone.return_value = ('org-uid-123', 1)
 
         result = Event.archive_event(1, 'org-uid-123')
 
@@ -86,15 +88,13 @@ class TestEventArchiving:
         mock_get_conn.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
 
-        # Mock count and events query
-        mock_cursor.fetchone.return_value = (5,)  # Total count
-        mock_cursor.fetchall.return_value = []  # No events for simplicity
+        mock_cursor.fetchone.return_value = (5,)
+        mock_cursor.fetchall.return_value = []
 
         Event.get_events()
 
-        # Verify the WHERE clause includes IsArchived filter
         calls = mock_cursor.execute.call_args_list
-        sql_query = calls[1][0][0]  # Second call is the main query
+        sql_query = calls[1][0][0]
         assert 'IsArchived = 0' in sql_query
 
     @patch('app.models.DatabaseConnection.get_connection')
@@ -110,7 +110,6 @@ class TestEventArchiving:
 
         Event.get_events(include_archived=True)
 
-        # Verify no IsArchived filter in WHERE clause
         calls = mock_cursor.execute.call_args_list
         sql_query = calls[1][0][0]
         assert 'IsArchived' not in sql_query or 'WHERE' not in sql_query
@@ -122,7 +121,7 @@ class TestEventArchiving:
         mock_cursor = MagicMock()
         mock_get_conn.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        mock_cursor.fetchone.return_value = None  # Archived event not found
+        mock_cursor.fetchone.return_value = None
 
         result = Event.get_event_by_id(1)
 
@@ -151,15 +150,13 @@ class TestEventArchiving:
         mock_cursor = MagicMock()
         mock_get_conn.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        mock_cursor.fetchone.return_value = (
-            'org-uid-123',)  # Organizer matches
+        mock_cursor.fetchone.return_value = ('org-uid-123',)
         mock_cursor.rowcount = 1
 
         result = Event.delete_event(1, 'org-uid-123')
 
         assert result is True
         mock_conn.commit.assert_called_once()
-        # Verify DELETE was called
         delete_call = [call for call in mock_cursor.execute.call_args_list
                        if 'DELETE' in str(call)]
         assert len(delete_call) > 0
@@ -223,7 +220,7 @@ class TestEventArchiving:
         mock_cursor = MagicMock()
         mock_get_conn.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        mock_cursor.fetchone.return_value = (1,)  # EventID
+        mock_cursor.fetchone.return_value = (1,)
 
         now = datetime.now()
         event = Event.create_event(
@@ -235,7 +232,6 @@ class TestEventArchiving:
             category_id=1
         )
 
-        # Verify INSERT doesn't set IsArchived or ArchivedAt
         insert_call = mock_cursor.execute.call_args_list[0][0][0]
         assert 'IsArchived' not in insert_call
         assert 'ArchivedAt' not in insert_call

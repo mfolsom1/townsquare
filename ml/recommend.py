@@ -13,16 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 class RecommendationEngine:
-    """Primary rec engine class"""
+    """Primary recommendation engine class"""
 
     def __init__(self, load_vectors_on_init: bool = True, db_connector: Optional[DatabaseConnector] = None):
-        # Init helpers
-        # Allow a caller to inject a db_connector to avoid creating multiple
-        # independent connectors during tests (each one loads fixtures)
-        if db_connector is None:
-            self.db_connector = DatabaseConnector()
-        else:
-            self.db_connector = db_connector
+        self.db_connector = db_connector if db_connector else DatabaseConnector()
         self.vector_store = VectorStore()
         self.embedding_generator = EmbeddingGenerator()
         self.preprocessor = TextPreprocessor()
@@ -32,7 +26,6 @@ class RecommendationEngine:
         # Mapping for quicker id -> index lookups
         self._event_id_to_index = {}
 
-        # Load vectors on initialization
         self._vectors_loaded = False
         if load_vectors_on_init:
             self.load_vectors()
@@ -41,7 +34,7 @@ class RecommendationEngine:
         return self._vectors_loaded and self.event_index is not None
 
     def _parse_event_time(self, event_time: Any) -> Optional[datetime]:
-        """Centralized event time parsing"""
+        """Parse event time from various formats"""
         if event_time is None:
             return None
         if isinstance(event_time, datetime):
@@ -55,9 +48,8 @@ class RecommendationEngine:
         return None
 
     def load_vectors(self):
-        # Load pre-computed vectors into memory
+        """Load pre-computed vectors into memory"""
         try:
-            # Check if cache needs refresh
             version_path = Path("model_artifacts/cache_version.json")
             if version_path.exists():
                 with open(version_path, 'r') as f:
@@ -68,7 +60,6 @@ class RecommendationEngine:
                             "Could not parse cache_version.json; reloading vectors")
                         current_version = {}
 
-                # Initialize _cache_version if it doesn't exist, or compare safely
                 current_ver_val = current_version.get(
                     'version') if isinstance(current_version, dict) else None
                 if current_ver_val is not None:
@@ -85,9 +76,7 @@ class RecommendationEngine:
             self.event_index, self.event_ids = self.vector_store.load_vectors(
                 "events")
             if self.event_index and self.event_ids:
-                logger.info(
-                    f"Loaded {len(self.event_ids)} event vectors provided by vector store (from utils)")
-                # Build id->index mapping for O(1) lookups
+                logger.info(f"Loaded {len(self.event_ids)} event vectors")
                 try:
                     self._event_id_to_index = {
                         eid: idx for idx, eid in enumerate(self.event_ids)}
@@ -97,8 +86,7 @@ class RecommendationEngine:
             else:
                 self._vectors_loaded = False
                 self._event_id_to_index = {}
-                logger.warning(
-                    "No event vectors found in vector store; _vectors_loaded remains False")
+                logger.warning("No event vectors found in vector store")
 
             # Clear event cache to force refresh
             if hasattr(self, '_event_cache'):
@@ -160,7 +148,6 @@ class RecommendationEngine:
                     event_embeddings.append(embedding)
                     weights.append(weight)
 
-        # Process recent activities (TODO: clicking, viewing for x amount of time, sharing, saving)
         for activity in activities:
             activity_time = self._parse_event_time(activity.get('CreatedAt'))
             if activity_time and activity_time > recent_cutoff:
@@ -174,13 +161,11 @@ class RecommendationEngine:
                         event_embeddings.append(embedding)
                         weights.append(weight)
 
-        # If no activity/RSVPs, new user, compute from interests
         if not event_embeddings:
             return self._compute_user_vector_from_interests(
                 self.db_connector.fetch_user(user_uid) or {}
             )
 
-        # Weighted average (w/ recency consideration, see recommend_events)
         weights_array = np.array(weights)
         embeddings_array = np.array(event_embeddings)
 
@@ -353,8 +338,8 @@ class RecommendationEngine:
             else:  # hybrid
                 boost_multiplier = 1.2
 
-            base_score = friend_event.get('BaseScore', 1.0)
-            friend_count = friend_event.get('FriendCount', 1)
+            base_score = float(friend_event.get('BaseScore', 1.0))
+            friend_count = int(friend_event.get('FriendCount', 1))
             friend_boost = base_score * \
                 boost_multiplier * (1 + 0.1 * friend_count)
 
@@ -408,8 +393,8 @@ class RecommendationEngine:
         for rec in friend_recommendations[:top_k * 2]:
             event_details = self.get_event_details(rec['EventID'])
             if event_details:
-                base_score = rec.get('BaseScore', 1.0)
-                friend_count = rec.get('FriendCount', 1)
+                base_score = float(rec.get('BaseScore', 1.0))
+                friend_count = int(rec.get('FriendCount', 1))
                 score = base_score * (1 + 0.2 * friend_count)
 
                 recommendations.append({
@@ -457,30 +442,22 @@ class RecommendationEngine:
         logger.info("Refreshing recommendation caches")
         if hasattr(self, '_event_cache'):
             del self._event_cache
-        self.load_vectors()  # TODO: might be problematic
+        self.load_vectors()
 
 
 class RecommendationAPI:
     """API layer for recommendations"""
 
     def __init__(self, engine: Optional[RecommendationEngine] = None):
-        # Allow injecting an existing engine to avoid double-initialization
-        # (constructing RecommendationEngine here triggers vector loads and
-        # fixture access)
-        # Tests should pass an engine instance when they already created one
-        if engine is None:
-            self.engine = RecommendationEngine()
-        else:
-            self.engine = engine
+        self.engine = engine if engine else RecommendationEngine()
 
     def get_recommendations(self, user_uid: str, top_k: int = 10,
                             filters: Optional[Dict[str, Any]] = None,
                             recommendation_strategy: str = "hybrid") -> Dict[str, Any]:
-        # Validate input
         if not user_uid or not isinstance(user_uid, str):
             return {"error": "Invalid user_uid", "recommendations": []}
 
-        if top_k <= 0 or top_k > 100:  # Limit recs to 10
+        if top_k <= 0 or top_k > 100:
             top_k = 10
 
         valid_strategies = ["hybrid", "friends_only", "friends_boosted"]
