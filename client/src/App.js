@@ -15,7 +15,7 @@ import ProfileContainer from "./pages/ProfileContainer";
 import Profile from "./pages/Profile";
 import SavedEventsPage from "./pages/SavedEventsPage";
 import Following from "./pages/Following"
-import OrgDashboard from "./pages/OrgDashboard";
+import OrgDashboardContainer from "./pages/OrgDashboardContainer";
 
 function App() {
   return (
@@ -33,7 +33,7 @@ function App() {
               element={
                 <>
                   <NavBar />
-                  <OrgDashboard />
+                  <OrgDashboardContainer />
                 </>
               }
             />

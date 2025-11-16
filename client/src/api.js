@@ -319,3 +319,31 @@ export async function getFriendFeed(idToken) {
 export async function getRecommendations(userId) {
     return apiRequest(`/recommendations/${userId}`, { method: "GET" });
 }
+
+//===============================
+// ===== Organizations =========
+//===============================
+
+/**
+ * Fetch a single organization by ID.
+ * Requires auth because membership / permissions are checked on the backend.
+ * @param {string} idToken - Firebase ID token
+ * @param {number|string} orgId - Organization ID
+ */
+export async function getOrganization(idToken, orgId) {
+    return apiRequest(`/api/organizations/${orgId}`, { method: "GET" }, idToken);
+}
+
+/**
+ * Update an organization.
+ * Backend route (from routes.py) allows fields like 'name' and 'description'.
+ * @param {string} idToken - Firebase ID token
+ * @param {number|string} orgId - Organization ID
+ * @param {object} data - Fields to update (e.g. { name, description })
+ */
+export async function updateOrganization(idToken, orgId, data) {
+    return apiRequest(`/api/organizations/${orgId}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+    }, idToken);
+}
