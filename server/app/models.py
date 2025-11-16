@@ -45,7 +45,15 @@ class User:
 
     @staticmethod
     def create_user(firebase_uid, username, email, first_name=None, last_name=None, location="Unknown", user_type='individual', organization_name=None):
-        """Create a new user in the database using existing schema"""
+        """Create a new user in the database"""
+        # Validate user_type and organization_name consistency
+        if user_type == 'organization' and not organization_name:
+            raise ValueError(
+                "Organization users must provide an organization_name")
+        if user_type == 'individual' and organization_name:
+            raise ValueError(
+                "Individual users cannot have an organization_name")
+
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
@@ -229,6 +237,17 @@ class User:
     @staticmethod
     def update_user(firebase_uid, **kwargs):
         """Update user information"""
+        # Validate user_type and organization_name consistency
+        user_type = kwargs.get('user_type')
+        organization_name = kwargs.get('organization_name')
+
+        if user_type == 'organization' and organization_name is None and 'organization_name' not in kwargs:
+            raise ValueError(
+                "Organization users must have an organization_name")
+        if user_type == 'individual' and organization_name is not None:
+            raise ValueError(
+                "Individual users cannot have an organization_name")
+
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
@@ -435,19 +454,22 @@ class User:
         cursor = conn.cursor()
         try:
             cursor.execute(
-                "SELECT FirebaseUID, Username, Email, FirstName, LastName, Location, Bio, CreatedAt, UpdatedAt FROM Users WHERE Username = ?",
+                """
+                SELECT FirebaseUID, Username, Email, FirstName, LastName, Location, Bio, UserType, OrganizationName, CreatedAt, UpdatedAt
+                FROM Users WHERE Username = ?
+                """,
                 (username,)
             )
             row = cursor.fetchone()
             if row:
-                return User(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8])
+                return User(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10])
             return None
         finally:
             conn.close()
 
 
 class Event:
-    def __init__(self, event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees=None, image_url=None, created_at=None, updated_at=None):
+    def __init__(self, event_id, organizer_uid, title, description, start_time, end_time, location, category_id, max_attendees=None, image_url=None, created_at=None, updated_at=None, is_archived=False, archived_at=None):
         self.event_id = event_id
         self.organizer_uid = organizer_uid
         self.title = title
@@ -460,6 +482,8 @@ class Event:
         self.image_url = image_url
         self.created_at = created_at
         self.updated_at = updated_at
+        self.is_archived = is_archived
+        self.archived_at = archived_at
 
     def to_dict(self):
         # Helper function to safely convert datetime to ISO format
@@ -482,7 +506,9 @@ class Event:
             "max_attendees": self.max_attendees,
             "image_url": self.image_url,
             "created_at": safe_isoformat(self.created_at),
-            "updated_at": safe_isoformat(self.updated_at)
+            "updated_at": safe_isoformat(self.updated_at),
+            "is_archived": self.is_archived,
+            "archived_at": safe_isoformat(self.archived_at)
         }
 
     @staticmethod
@@ -511,7 +537,7 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_events(q=None, page: int = 1, per_page: int = 20, sort_by: str = "StartTime", sort_dir: str = "ASC"):
+    def get_events(q=None, page: int = 1, per_page: int = 20, sort_by: str = "StartTime", sort_dir: str = "ASC", include_archived: bool = False):
         """
         Simplified search: only supports a free-text query `q` (matches Title/Description/Location)
         plus pagination and simple sorting. Returns dict { events: [Event,...], total: int }.
@@ -524,6 +550,10 @@ class Event:
             clauses.append(
                 "(Title LIKE ? OR Description LIKE ? OR Location LIKE ?)")
             params += [like, like, like]
+
+        # Exclude archived events by default
+        if not include_archived:
+            clauses.append("IsArchived = 0")
 
         where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
 
@@ -578,7 +608,9 @@ class Event:
                     max_attendees=row[8],
                     image_url=row[9],
                     created_at=row[10],
-                    updated_at=row[11]
+                    updated_at=row[11],
+                    is_archived=bool(row[12]),
+                    archived_at=row[13]
                 )
                 for row in rows
             ]
@@ -592,7 +624,7 @@ class Event:
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT * FROM Events")
+            cursor.execute("SELECT * FROM Events WHERE IsArchived = 0")
             rows = cursor.fetchall()
 
             # Convert rows to Event objects
@@ -609,7 +641,9 @@ class Event:
                     max_attendees=row[8],
                     image_url=row[9],
                     created_at=row[10],
-                    updated_at=row[11]
+                    updated_at=row[11],
+                    is_archived=bool(row[12]),
+                    archived_at=row[13]
                 )
                 for row in rows
             ]
@@ -626,7 +660,7 @@ class Event:
         cursor = conn.cursor()
         try:
             cursor.execute(
-                "SELECT * FROM Events WHERE EventID = ?", (event_id,))
+                "SELECT * FROM Events WHERE EventID = ? AND IsArchived = 0", (event_id,))
             row = cursor.fetchone()
             if row:
                 return Event(
@@ -641,7 +675,9 @@ class Event:
                     max_attendees=row[8],
                     image_url=row[9],
                     created_at=row[10],
-                    updated_at=row[11]
+                    updated_at=row[11],
+                    is_archived=bool(row[12]),
+                    archived_at=row[13]
                 )
             return None
         except Exception as e:
@@ -703,17 +739,85 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_events_by_organizer(organizer_uid):
+    def archive_event(event_id, organizer_uid):
+        """Archive an event (soft delete). Returns the archived Event on success, None if not found, False if not authorized."""
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if event exists, user is organizer, and event is not already archived
+            cursor.execute(
+                "SELECT OrganizerUID, IsArchived FROM Events WHERE EventID = ?",
+                (event_id,)
+            )
+            row = cursor.fetchone()
+
+            # Event not found
+            if not row:
+                return None
+
+            # User is not the organizer
+            if row[0] != organizer_uid:
+                return False
+
+            # Event is already archived
+            if row[1]:
+                return None
+
+            # Archive the event
+            cursor.execute(
+                """
+                UPDATE Events 
+                SET IsArchived = 1, ArchivedAt = GETDATE(), UpdatedAt = GETDATE()
+                WHERE EventID = ?
+                """,
+                (event_id,)
+            )
+            conn.commit()
+
+            # Return the archived event
+            cursor.execute(
+                "SELECT * FROM Events WHERE EventID = ?", (event_id,))
+            row = cursor.fetchone()
+            if row:
+                return Event(
+                    event_id=row[0],
+                    organizer_uid=row[1],
+                    title=row[2],
+                    description=row[3],
+                    start_time=row[4],
+                    end_time=row[5],
+                    location=row[6],
+                    category_id=row[7],
+                    max_attendees=row[8],
+                    image_url=row[9],
+                    created_at=row[10],
+                    updated_at=row[11],
+                    is_archived=bool(row[12]),
+                    archived_at=row[13]
+                )
+            return None
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_events_by_organizer(organizer_uid, include_archived=False):
         """Get all events organized by a specific user"""
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
+            where_clause = "WHERE OrganizerUID = ?"
+            if not include_archived:
+                where_clause += " AND IsArchived = 0"
+
             cursor.execute(
-                """
+                f"""
                 SELECT EventID, OrganizerUID, Title, Description, StartTime, EndTime, Location, 
-                       CategoryID, MaxAttendees, ImageURL, CreatedAt, UpdatedAt
+                       CategoryID, MaxAttendees, ImageURL, CreatedAt, UpdatedAt, IsArchived, ArchivedAt
                 FROM Events 
-                WHERE OrganizerUID = ?
+                {where_clause}
                 ORDER BY StartTime ASC
                 """,
                 (organizer_uid,)
@@ -733,7 +837,9 @@ class Event:
                     max_attendees=row[8],
                     image_url=row[9],
                     created_at=row[10],
-                    updated_at=row[11]
+                    updated_at=row[11],
+                    is_archived=bool(row[12]),
+                    archived_at=row[13]
                 )
                 for row in rows
             ]
@@ -753,10 +859,10 @@ class Event:
             cursor.execute(
                 """
                 SELECT e.EventID, e.OrganizerUID, e.Title, e.Description, e.StartTime, e.EndTime, e.Location, 
-                       e.CategoryID, e.MaxAttendees, e.ImageURL, e.CreatedAt, e.UpdatedAt
+                       e.CategoryID, e.MaxAttendees, e.ImageURL, e.CreatedAt, e.UpdatedAt, e.IsArchived, e.ArchivedAt
                 FROM Events e
                 INNER JOIN RSVPs r ON e.EventID = r.EventID
-                WHERE r.UserUID = ? AND r.Status = 'Going' AND e.OrganizerUID != ?
+                WHERE r.UserUID = ? AND r.Status = 'Going' AND e.OrganizerUID != ? AND e.IsArchived = 0
                 ORDER BY e.StartTime ASC
                 """,
                 (user_uid, user_uid)
@@ -776,7 +882,9 @@ class Event:
                     max_attendees=row[8],
                     image_url=row[9],
                     created_at=row[10],
-                    updated_at=row[11]
+                    updated_at=row[11],
+                    is_archived=bool(row[12]),
+                    archived_at=row[13]
                 )
                 for row in rows
             ]
@@ -789,18 +897,18 @@ class Event:
 
     @staticmethod
     def get_friend_events(firebase_uid):
-        # Events that friends the user is following are attending or interested in
+        # Events created/organized by people the user is following (based on SocialConnections table)
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
             cursor.execute(
                 """
-                SELECT DISTINCT e.*
+                SELECT e.EventID, e.OrganizerUID, e.Title, e.Description, e.StartTime, e.EndTime, e.Location, 
+                       e.CategoryID, e.MaxAttendees, e.ImageURL, e.CreatedAt, e.UpdatedAt, e.IsArchived, e.ArchivedAt
                 FROM Events e
-                JOIN RSVPs r ON e.EventID = r.EventID
-                JOIN SocialConnections s ON s.FollowingUID = r.UserUID
-                WHERE s.FollowerUID = ?
-                  AND r.Status IN ('Going', 'Interested')
+                JOIN SocialConnections s ON s.FollowingUID = e.OrganizerUID
+                WHERE s.FollowerUID = ? AND e.IsArchived = 0
+                ORDER BY e.StartTime ASC
                 """,
                 (firebase_uid,)
             )
@@ -820,6 +928,8 @@ class Event:
                         image_url=row[9],
                         created_at=row[10],
                         updated_at=row[11],
+                        is_archived=bool(row[12]),
+                        archived_at=row[13]
                     )
                     for row in rows
                 ]
@@ -831,43 +941,9 @@ class Event:
 
     @staticmethod
     def get_friend_created_events(firebase_uid):
-        # Events created by friends the user is following
-        conn = DatabaseConnection.get_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute(
-                """
-                SELECT e.*
-                FROM Events e
-                JOIN SocialConnections s ON s.FollowingUID = e.OrganizerUID
-                WHERE s.FollowerUID = ?
-                """,
-                (firebase_uid,)
-            )
-            rows = cursor.fetchall()
-            if rows:
-                return [
-                    Event(
-                        event_id=row[0],
-                        organizer_uid=row[1],
-                        title=row[2],
-                        description=row[3],
-                        start_time=row[4],
-                        end_time=row[5],
-                        location=row[6],
-                        category_id=row[7],
-                        max_attendees=row[8],
-                        image_url=row[9],
-                        created_at=row[10],
-                        updated_at=row[11],
-                    )
-                    for row in rows
-                ]
-            return []
-        except Exception as e:
-            raise e
-        finally:
-            conn.close()
+        # This method is now redundant with get_friend_events since both return events created by followed users
+        # Keeping for backward compatibility but delegating to get_friend_events
+        return Event.get_friend_events(firebase_uid)
 
     @staticmethod
     def get_friend_feed(firebase_uid):

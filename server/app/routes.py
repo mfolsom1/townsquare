@@ -1,10 +1,23 @@
 from datetime import datetime
 from flask import Flask, jsonify, request
-from .models import Event, RSVP
+from .models import Event, RSVP, User
 from firebase_admin import auth
-from .models import User
 from .auth_utils import require_auth, require_organization
 import pyodbc
+import os
+import sys
+from pathlib import Path
+
+parent_dir = Path(__file__).resolve().parents[2]
+if str(parent_dir) not in sys.path:
+    sys.path.insert(0, str(parent_dir))
+
+try:
+    from ml.recommend import RecommendationAPI
+    ML_AVAILABLE = True
+except Exception as e:
+    print(f"Warning: ML recommendation engine not available: {e}")
+    ML_AVAILABLE = False
 
 
 def register_routes(app):
@@ -22,8 +35,6 @@ def register_routes(app):
             id_token = request_data.get('idToken')
             user_data = request_data.get('userData', {})
 
-            print(f"Backend received user_data: {user_data}")  # Debug log
-
             if not id_token:
                 return jsonify({"error": "No ID token provided"}), 400
 
@@ -36,9 +47,6 @@ def register_routes(app):
             existing_user = User.get_user_by_firebase_uid(firebase_uid)
 
             if existing_user:
-                # Debug log
-                print(f"User already exists: {existing_user.username}")
-                # User exists, return user data
                 return jsonify({
                     "success": True,
                     "user": existing_user.to_dict()
@@ -50,16 +58,13 @@ def register_routes(app):
                 if not username:
                     return jsonify({"error": "Username is required for account creation"}), 400
 
-                # Debug log
-                print(f"Creating new user with username: {username}")
-
-                # Validate username format
                 username = username.strip()
                 if len(username) < 3 or len(username) > 20:
                     return jsonify({"error": "Username must be between 3 and 20 characters"}), 400
 
                 if not username.replace('_', '').replace('-', '').isalnum():
                     return jsonify({"error": "Username can only contain letters, numbers, underscores, and hyphens"}), 400
+
                 try:
                     # Extract name info from user_data or Firebase token
                     full_name = user_data.get(
@@ -71,11 +76,9 @@ def register_routes(app):
                                   name_parts[0] if name_parts[0] else None)
                     last_name = (decoded_token.get('family_name') or
                                  name_parts[1] if len(name_parts) > 1 and name_parts[1] else None)
-                    # Determine account type (defaults to individual)
-                    user_type = user_data.get('user_type', 'individual')
-                    if user_type not in ('individual', 'organization'):
-                        user_type = 'individual'
-                    organization_name = user_data.get('organization_name')
+
+                    user_type = user_data.get('userType', 'individual')
+                    organization_name = user_data.get('organizationName')
 
                     new_user = User.create_user(
                         firebase_uid=firebase_uid,
@@ -83,7 +86,7 @@ def register_routes(app):
                         email=email,
                         first_name=first_name,
                         last_name=last_name,
-                        location="Unknown",  # Default location, can be updated later
+                        location=user_data.get('location', 'Unknown'),
                         user_type=user_type,
                         organization_name=organization_name
                     )
@@ -123,19 +126,16 @@ def register_routes(app):
     def update_user_profile(firebase_uid):
         """Update user profile (requires Firebase token in Authorization header)"""
         try:
-            # Explicit check for missing or invalid firebase_uid
             if not firebase_uid:
                 return jsonify({"error": "You must be logged in to update your profile."}), 401
 
             update_data = request.json or {}
-            allowed_fields = ['username', 'first_name', 'last_name',
-                              'location', 'bio', 'interests', 'user_type', 'organization_name']
+            allowed_fields = ['username', 'first_name',
+                              'last_name', 'location', 'bio', 'interests']
 
-            # Filter and validate data
             filtered_data = {k: v for k, v in update_data.items()
                              if k in allowed_fields and v is not None}
 
-            # Special validation for interests
             if 'interests' in filtered_data:
                 interests = filtered_data['interests']
                 if not isinstance(interests, list):
@@ -174,27 +174,6 @@ def register_routes(app):
             return jsonify({"error": "Database integrity error", "details": str(e)}), 409
         except Exception as e:
             return jsonify({"error": f"Failed to update user profile: {str(e)}"}), 500
-
-    @app.route('/api/user/organization', methods=['POST'])
-    @require_auth
-    def upgrade_to_organization(firebase_uid):
-        """Basic endpoint to convert current user to an organization account."""
-        try:
-            body = request.json or {}
-            org_name = body.get('organization_name')
-            # Set the user type and optional organization name
-            success = User.update_user(
-                firebase_uid, user_type='organization', organization_name=org_name)
-            if not success:
-                return jsonify({"error": "Failed to update user to organization"}), 400
-            user = User.get_user_by_firebase_uid(firebase_uid)
-            return jsonify({
-                "success": True,
-                "message": "User upgraded to organization",
-                "user": user.to_dict()
-            })
-        except Exception as e:
-            return jsonify({"error": f"Failed to upgrade to organization: {str(e)}"}), 500
 
     @app.route('/api/user/interests', methods=['GET'])
     @require_auth
@@ -444,6 +423,27 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": f"Failed to get followers list: {str(e)}"}), 500
 
+    @app.route('/api/user/<firebase_uid>/public', methods=['GET'])
+    def get_user_public_info(firebase_uid):
+        """Get public user information by Firebase UID"""
+        try:
+            user = User.get_user_by_firebase_uid(firebase_uid)
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            return jsonify({
+                "success": True,
+                "user": {
+                    "firebase_uid": user.firebase_uid,
+                    "username": user.username,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "location": user.location
+                }
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to get user info: {str(e)}"}), 500
+
     # ===== Event functions ===== #
     @app.route('/events', methods=['GET'])
     def get_events():
@@ -499,7 +499,11 @@ def register_routes(app):
     def get_user_organized_events(firebase_uid):
         """Get events organized by the current user"""
         try:
-            events = Event.get_events_by_organizer(firebase_uid)
+            # Check for include_archived parameter
+            include_archived = request.args.get(
+                'include_archived', 'false').lower() == 'true'
+            events = Event.get_events_by_organizer(
+                firebase_uid, include_archived=include_archived)
             return jsonify({
                 "success": True,
                 "events": [event.to_dict() for event in events]
@@ -594,12 +598,12 @@ def register_routes(app):
 
     @app.route('/events', methods=['POST'])
     @require_organization
-    def create_event(firebase_uid, user=None):
+    def create_event(firebase_uid):
         try:
             # Parse JSON data from the request
             data = request.get_json()
 
-            # Validate required fields (CategoryID is now included)
+            # Validate required fields
             required_fields = ['Title', 'StartTime',
                                'EndTime', 'Location', 'CategoryID']
             missing_fields = [
@@ -615,7 +619,7 @@ def register_routes(app):
                 start_time=(data['StartTime']),
                 end_time=(data['EndTime']),
                 location=data['Location'],
-                category_id=data['CategoryID'],  # Now a required field
+                category_id=data['CategoryID'],
                 max_attendees=data.get('MaxAttendees'),
                 image_url=data.get('ImageURL')
             )
@@ -682,9 +686,8 @@ def register_routes(app):
 
     @app.route('/events/<int:event_id>', methods=['DELETE'])
     @require_organization
-    def delete_event(firebase_uid, event_id, user=None):
+    def delete_event(firebase_uid, event_id):
         try:
-
             success = Event.delete_event(event_id, firebase_uid)
 
             if not success:
@@ -692,15 +695,137 @@ def register_routes(app):
 
             return jsonify({
                 "success": True,
-                "message": "Event deleted successfully"
+                "message": "Event permanently deleted"
+            }), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/events/<int:event_id>/archive', methods=['POST'])
+    @require_organization
+    def archive_event(firebase_uid, event_id):
+        """Archive an event (soft delete)"""
+        try:
+            result = Event.archive_event(event_id, firebase_uid)
+
+            # Event not found or already archived
+            if result is None:
+                return jsonify({"error": "Event not found or already archived"}), 404
+
+            # User not authorized
+            if result is False:
+                return jsonify({"error": "Not authorized to archive this event"}), 403
+
+            return jsonify({
+                "success": True,
+                "message": "Event archived successfully",
+                "archived_event": result.to_dict()
+            }), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/user/events/archived', methods=['GET'])
+    @require_organization
+    def get_user_archived_events(firebase_uid):
+        """Get all archived events for the current organization user"""
+        try:
+            # Get all events (including archived) then filter
+            events = Event.get_events_by_organizer(
+                firebase_uid, include_archived=True)
+            archived_events = [event for event in events if event.is_archived]
+
+            return jsonify({
+                "success": True,
+                "events": [event.to_dict() for event in archived_events]
             }), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
     # ===== Recommendation functions =====
-    @app.route('/recommendations/<int:user_id>', methods=['GET'])
-    def get_recommendations(user_id):
-        return jsonify([])
+
+    # Initialize ML engine (lazy loading)
+    _ml_engine = None
+
+    def get_ml_engine():
+        """Get or initialize the ML recommendation engine"""
+        nonlocal _ml_engine
+        if _ml_engine is None and ML_AVAILABLE:
+            try:
+                _ml_engine = RecommendationAPI()
+            except Exception as e:
+                print(f"Error initializing ML engine: {e}")
+                return None
+        return _ml_engine
+
+    @app.route('/api/recommendations', methods=['GET'])
+    @require_auth
+    def get_recommendations(firebase_uid):
+        """Get personalized recommendations for the authenticated user"""
+        try:
+            # Get query parameters
+            top_k = request.args.get('top_k', default=10, type=int)
+            strategy = request.args.get('strategy', default='hybrid', type=str)
+
+            # Validate parameters
+            if top_k < 1 or top_k > 50:
+                return jsonify({"error": "top_k must be between 1 and 50"}), 400
+
+            valid_strategies = ['hybrid', 'friends_only', 'friends_boosted']
+            if strategy not in valid_strategies:
+                return jsonify({"error": f"Invalid strategy. Must be one of: {', '.join(valid_strategies)}"}), 400
+
+            # Get ML engine
+            ml_engine = get_ml_engine()
+            if not ml_engine:
+                return jsonify({"error": "Recommendation engine not available"}), 503
+
+            # Get recommendations
+            result = ml_engine.get_recommendations(
+                user_uid=firebase_uid,
+                top_k=top_k,
+                filters=None,  # Could be extended to support filters
+                recommendation_strategy=strategy
+            )
+
+            return jsonify({
+                "success": True,
+                "recommendations": result.get('recommendations', []),
+                "count": result.get('count', 0),
+                "strategy": result.get('strategy_used', strategy),
+                "user_uid": firebase_uid
+            }), 200
+
+        except Exception as e:
+            print(f"Error getting recommendations: {e}")
+            return jsonify({"error": f"Failed to get recommendations: {str(e)}"}), 500
+
+    @app.route('/api/recommendations/refresh', methods=['POST'])
+    @require_auth
+    def refresh_recommendations(firebase_uid):
+        """Refresh the recommendation models (admin/testing only)"""
+        try:
+            ml_engine = get_ml_engine()
+            if not ml_engine:
+                return jsonify({"error": "Recommendation engine not available"}), 503
+
+            result = ml_engine.refresh_models()
+
+            return jsonify({
+                "success": True,
+                "message": "Recommendation models refreshed",
+                "status": result.get('status', 'models_refreshed')
+            }), 200
+
+        except Exception as e:
+            return jsonify({"error": f"Failed to refresh models: {str(e)}"}), 500
+
+    # Legacy endpoint for backward compatibility
+    @app.route('/recommendations/<user_id>', methods=['GET'])
+    def get_recommendations_legacy(user_id):
+        """Legacy recommendation endpoint (deprecated)"""
+        return jsonify({
+            "message": "This endpoint is deprecated. Use /api/recommendations with authentication.",
+            "recommendations": []
+        }), 200
 
     @app.errorhandler(404)
     def not_found(error):

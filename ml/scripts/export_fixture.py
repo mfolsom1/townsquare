@@ -72,7 +72,7 @@ def export_from_db(limit: int, driver_name: str = None):
 
     # Simple queries; adapt as needed
     events_q = f"SELECT TOP ({limit}) EventID, Title, Description, StartTime, EndTime, Location FROM Events ORDER BY StartTime DESC"
-    users_q = f"SELECT TOP ({limit}) FirebaseUID, Username, Location, Bio FROM Users"
+    users_q = f"SELECT TOP ({limit}) FirebaseUID, Username, Location, Bio, UserType, OrganizationName FROM Users"
     rsvps_q = f"SELECT TOP ({limit}) RSVPID, UserUID, EventID, Status, CreatedAt FROM RSVPs ORDER BY CreatedAt DESC"
     activities_q = f"SELECT TOP ({limit}) ActivityID, UserUID, ActivityType, TargetID, Description, CreatedAt FROM UserActivity ORDER BY CreatedAt DESC"
     friends_q = f"SELECT TOP ({limit}) FollowerUID, FollowingUID, CreatedAt FROM SocialConnections"

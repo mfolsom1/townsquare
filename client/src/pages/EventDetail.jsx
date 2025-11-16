@@ -5,12 +5,14 @@ import {
   createOrUpdateRsvp,
   deleteRsvp,
   getUserRsvps,
-} from "../api"; // Make sure the path to your api.js is correct
+  getUserPublicInfo,
+} from "../api";
 import { useAuth } from "../auth/AuthContext";
 import RsvpModal from "../components/RsvpModal";
+import FollowButton from "../components/FollowButton";
 import "./EventDetail.css";
 
-// Re-using the same helpers from the Discover page for consistency
+/* Re-using the same category details from the Discover page for consistency */
 const categoryDetails = {
   1: { name: "Gator Sports", color: "#FA4616" },
   2: { name: "UF Campus Life", color: "#0021A5" },
@@ -42,15 +44,16 @@ const formatEventTimeRange = (startStr, endStr) => {
 };
 
 export default function EventDetail() {
-  const { eventId } = useParams(); // Gets the event's ID from the URL
+  const { eventId } = useParams();
   const { user } = useAuth();
-  const navigate = useNavigate(); // optional
+  const navigate = useNavigate();
 
   const [event, setEvent] = useState(null);
+  const [organizer, setOrganizer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [rsvpStatus, setRsvpStatus] = useState(null); // 'Going' | 'Interested' | 'Not Going' | null
+  const [rsvpStatus, setRsvpStatus] = useState(null);
   const [rsvpLoading, setRsvpLoading] = useState(false);
   const [rsvpError, setRsvpError] = useState(null);
   const [isRsvpOpen, setIsRsvpOpen] = useState(false);
@@ -59,7 +62,18 @@ export default function EventDetail() {
     const fetchEvent = async () => {
       try {
         const response = await getEventById(eventId);
-        setEvent(response.event);
+        const eventData = response.event;
+        setEvent(eventData);
+
+        // Fetch organizer info
+        if (eventData.organizer_uid) {
+          try {
+            const organizerResponse = await getUserPublicInfo(eventData.organizer_uid);
+            setOrganizer(organizerResponse.user);
+          } catch (err) {
+            console.warn("Failed to fetch organizer info:", err);
+          }
+        }
       } catch (err) {
         setError(err.message || "Failed to load event details.");
       } finally {
@@ -87,7 +101,6 @@ export default function EventDetail() {
         if (!mounted) return;
         setRsvpStatus(mine ? mine.status : null);
       } catch (err) {
-        // non-fatal; we can show a small hint
         if (!mounted) return;
         console.warn("Failed to load user RSVPs", err);
       }
@@ -98,16 +111,14 @@ export default function EventDetail() {
     };
   }, [user, eventId, navigate]);
 
-  // Handler to create/update RSVP (status = 'Going'|'Interested'|'Not Going')
+  /* Handler to create/update RSVP (status = 'Going'|'Interested'|'Not Going') */
   async function handleSetRsvp(status) {
     if (!user) {
-      // require auth - redirect or prompt sign-in
       navigate("/login", { replace: true });
       return;
     }
 
     setRsvpError(null);
-    // Optimistically update UI
     const previous = rsvpStatus;
     setRsvpStatus(status);
     setRsvpLoading(true);
@@ -115,20 +126,16 @@ export default function EventDetail() {
     try {
       const idToken = await user.getIdToken();
       const res = await createOrUpdateRsvp(idToken, Number(eventId), status);
-      // res.rsvp likely has the canonical status from server
       setRsvpStatus(res?.rsvp?.status ?? status);
     } catch (err) {
-      // rollback optimistic update
       setRsvpStatus(previous);
       setRsvpError(err.message || "Failed to update RSVP");
-      // If auth problem, optionally force token refresh and retry once:
-      // if (err.message?.includes('401')) { const idToken = await user.getIdToken(true); ... }
     } finally {
       setRsvpLoading(false);
     }
   }
 
-  // Handler to cancel RSVP
+  /* Handler to cancel RSVP */
   async function handleCancelRsvp() {
     if (!user) {
       navigate("/login", { replace: true });
@@ -164,7 +171,7 @@ export default function EventDetail() {
     return <div className="page-status">Event not found.</div>;
   }
 
-  // Once data is loaded, render the full page
+  /* Once data is loaded, render the full page */
   const { name, color } =
     categoryDetails[event.category_id] || categoryDetails.default;
   const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -188,7 +195,19 @@ export default function EventDetail() {
         />
 
         <div className="event-header">
-          <h1 className="event-title">{event.title}</h1>
+          <div className="event-title-section">
+            <h1 className="event-title">{event.title}</h1>
+            <div className="organizer-follow-section">
+              <span className="organizer-label">
+                Organized by: <strong>{organizer ? `@${organizer.username}` : 'Loading...'}</strong>
+              </span>
+              <FollowButton
+                targetUid={event.organizer_uid}
+                targetUsername={organizer?.username}
+                className="event-follow-button"
+              />
+            </div>
+          </div>
           <span
             className="event-category-tag"
             style={{ backgroundColor: color }}
@@ -211,7 +230,6 @@ export default function EventDetail() {
               className="rsvp-button"
               onClick={() => {
                 if (!user) return navigate("/login", { replace: true });
-                // If user is Going, clicking cancels the RSVP. Otherwise open modal to create/update.
                 if (rsvpStatus === "Going") {
                   handleCancelRsvp();
                 } else {
@@ -223,8 +241,8 @@ export default function EventDetail() {
               {rsvpStatus === "Going"
                 ? "Cancel RSVP"
                 : rsvpStatus === "Interested"
-                ? "Update RSVP"
-                : "RSVP"}
+                  ? "Update RSVP"
+                  : "RSVP"}
             </button>
           </div>
 

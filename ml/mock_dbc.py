@@ -1,4 +1,4 @@
-# mock_dbc.py: Model testing helpers
+# mock_dbc.py: Mock database connector for testing
 import json
 import os
 from pathlib import Path
@@ -11,20 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 class MockDatabaseConnector:
-    """Mock database connector for testing.
+    """Mock database connector for testing
 
-    This connector generates in-memory mock data for the offline test_mock.py file.
-    If an environment variable `ML_TEST_FIXTURE` is set or a file exists at
-    `ml/fixtures/production_fixture.json`, the connector will load that JSON
-    fixture and use it instead. 
-    NOTE: The fixture does not contain sanitized data.
+    Generates in-memory mock data or loads from production_fixture.json if available.
     """
 
     def __init__(self, test_user_id: str = "user_001", fixture_path: Optional[str] = None):
         self.test_user_id = test_user_id
 
-        # Resolve fixture path, env var overrides explicit arg.
-        # Default path is ml/fixtures/production_fixture.json
         env_path = os.environ.get('ML_TEST_FIXTURE')
         if env_path:
             fixture_path = env_path
@@ -32,7 +26,6 @@ class MockDatabaseConnector:
         if fixture_path is None:
             default_fixture = Path(__file__).resolve(
             ).parent.parent / 'ml' / 'fixtures' / 'production_fixture.json'
-            # Also accept ml/fixtures relative to repo root
             alt_fixture = Path(__file__).resolve().parent / \
                 'fixtures' / 'production_fixture.json'
             if default_fixture.exists():
@@ -89,15 +82,19 @@ class MockDatabaseConnector:
                 "Tags": ["test", "community"] if i % 2 == 0 else ["fun"],
             })
 
-        # Create a few mock users
+        # Create a few mock users (mix of individual and organization)
         users = []
         for j in range(1, 5):
+            # Make user_003 an organization for testing
+            is_org = (j == 3)
             users.append({
                 "FirebaseUID": f"user_{j:03d}",
-                "Username": f"tester{j}",
+                "Username": f"tester{j}" if not is_org else "test_org",
                 "Interests": ["music", "sports"] if j % 2 == 0 else ["art"],
                 "Bio": f"Bio for user {j}",
                 "Location": "Testville",
+                "UserType": "organization" if is_org else "individual",
+                "OrganizationName": "Test Organization" if is_org else None,
             })
 
         # RSVPs for users (test_user attending some events)
@@ -218,6 +215,8 @@ class MockDatabaseConnector:
                 "FirebaseUID": self.test_user_id,
                 "Username": "test_user",
                 "Interests": ["music", "art"],
+                "UserType": "individual",
+                "OrganizationName": None,
             }
         return None
 
