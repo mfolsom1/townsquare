@@ -1,16 +1,20 @@
 import React from "react";
-import { NavLink, Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import "./NavBarLeft.css";
 
 export default function NavBarLeft() {
-  return (
-    <aside className="lts-nav">
 
-      <nav className="lts-center">
+
+  return (
+    <nav className="lts-nav">
+      <div className="lts-brand"> 
+      </div>
+
+      <div className="lts-center">
         <NavLink to="/discover" className="lts-tab">Discover</NavLink>
         <NavLink to="/following" className="lts-tab">Following</NavLink>
         <NavLink to="/saved" className="lts-tab">Saved Events</NavLink>
-      </nav>
-    </aside>
+      </div>
+    </nav>
   );
 }

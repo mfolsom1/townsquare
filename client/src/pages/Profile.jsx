@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import "./Profile.css";
 import CreateEvent from "../components/CreateEvent.js"; 
 import EditProfile from "../components/EditProfile.jsx";
+import { useAuth } from "../auth/AuthContext.jsx";
+import { Link, useNavigate } from "react-router-dom";
 
 const initialsFromName = (name = "User") =>
   name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase()).join("") || "U";
@@ -19,6 +21,14 @@ export default function ProfilePage({
   onCreateEvent,               // optional callback(newEvent)
   onSaveProfile
 }) {
+  
+  const { user, logout } = useAuth();
+  const nav = useNavigate();
+  const handleLogout = async () => {
+    await logout();
+    nav("/login", { replace: true })
+  }
+
   // keep local snapshot so UI reflects edits immediately
   const [nameLocal, setNameLocal]         = useState(fullName);
   const [usernameLocal, setUsernameLocal] = useState(username);
@@ -78,23 +88,24 @@ export default function ProfilePage({
               <h1 className="pf-name">{nameLocal}</h1>
               <div className="pf-handle">@{usernameLocal}</div>
 
-              <div className="pf-row">
-                <div className="pf-friends"><strong>{friends}</strong> Friends</div>
-                <button type="button" className="pf-btn" onClick={openEdit}>
-                  Edit Profile
-                </button>
-              </div>
 
               {/*Location Display */}
                {locLocal && (
                  <div className="pf-sub pf-location pf-location-after">
-                  <span>{locLocal}</span>
                   <span className="material-symbols-outlined" aria-hidden="true">location_on</span>
+                  <span>{locLocal}</span>
                 </div>
               )}
+              <div className="pf-row">
+                <span className="pf-friends material-symbols-outlined">group</span>
+                <div className="pf-friends"><strong>{friends}</strong> Friends</div>
+              </div>
               {study    && <div className="pf-sub">{study}</div>}
               {bioLocal && <div className="pf-sub pf-bio">{bioLocal}</div>}
             </div>
+            <button type="button" className="pf-btn" onClick={openEdit}>
+              Edit Profile
+            </button>
           </div>
 
           <div className="pf-card pf-interests">
@@ -107,6 +118,10 @@ export default function ProfilePage({
               <div className="pf-empty">Interests from your profile.</div>
             )}
           </div>
+          <button className="org-logout-btn" type="button" onClick={handleLogout}>
+              Logout
+          </button>
+
         </section>
 
         {/* RIGHT */}
