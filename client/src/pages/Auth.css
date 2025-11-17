@@ -204,3 +204,55 @@
 .forgot-password-btn:hover {
   text-decoration: var(--switch-link-hover);
 }
+
+/* ================================
+   Account Type Toggle (Signup)
+================================ */
+
+.account-type-toggle {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 4px;
+}
+
+.account-type-pill {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: 999px;
+  border: 2px solid var(--color-accent-3);
+  background: #ffffff;
+  color: var(--color-accent-3);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.1s ease;
+}
+
+/* hover state */
+.account-type-pill:hover {
+  background: var(--color-accent-3);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.25);
+  transform: translateY(-1px);
+}
+
+/* active (selected) state */
+.account-type-pill.active {
+  background: var(--color-accent-3);
+  color: #fff;
+  border-color: var(--color-accent-3-dark);
+  box-shadow: 0 8px 18px rgba(124, 58, 237, 0.35);
+}
+
+/* optional emoji/icon inside the pill */
+.account-type-pill .pill-icon {
+  font-size: 18px;
+  margin-right: 6px;
+  vertical-align: -2px;
+}
