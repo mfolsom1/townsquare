@@ -102,7 +102,7 @@ Training parameters control minimum event counts, embedding dimensions, similari
 
 ## Testing
 
-**Location**: `server/tests/test_ml.py`, `server/tests/test_recommendations.py`, `ml/mock_dbc.py`, `ml/fixtures/`
+**Location**: `server/tests/test_ml.py`, `ml/mock_dbc.py`, `ml/fixtures/`, `test_recommendations.py`
 
 ### Test Mode
 Set `ML_TEST_MODE=1` to use mock database connector with fixture data. This enables development and testing without database dependencies.
@@ -110,16 +110,11 @@ Set `ML_TEST_MODE=1` to use mock database connector with fixture data. This enab
 Run tests with: `pytest server/tests/test_ml.py -v`
 
 ### User-Specific Testing
-**Location**: `server/tests/test_recommendations.py`
+**Location**: `test_recommendations.py`
 
-Test recommendations for specific users from server directory:
+Test recommendations for specific users:
 ```bash
-# Run as pytest test (with output)
-cd server
-python -m pytest tests/test_recommendations.py -s
-
-# Or run directly
-python tests/test_recommendations.py
+python test_recommendations.py
 ```
 
 Configure test user by editing `TEST_USERNAME` variable at top of file (default: 'test_user15'). The script:

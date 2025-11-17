@@ -37,18 +37,15 @@ const formatEventTimeRange = (startStr, endStr) => {
 
   const startFormatted = startDate.toLocaleDateString("en-US", options);
 
-  // If the event ends on the same day, only show the end time
-  if (startDate.toDateString() === endDate.toDateString()) {
-    const endFormatted = endDate.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-    return `${startFormatted} - ${endFormatted}`;
-  }
+    // If the event ends on the same day, only show the end time
+    if (startDate.toDateString() === endDate.toDateString()) {
+        const endFormatted = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        return `${startFormatted} - ${endFormatted}`;
+    }
 
-  // If it ends on a different day, show the full end date and time
-  const endFormatted = endDate.toLocaleDateString("en-US", options);
-  return `${startFormatted} to ${endFormatted}`;
+    // If it ends on a different day, show the full end date and time
+    const endFormatted = endDate.toLocaleDateString('en-US', options);
+    return `${startFormatted} to ${endFormatted}`;
 };
 
 // --- Sub-components ---
@@ -58,22 +55,20 @@ const formatEventTimeRange = (startStr, endStr) => {
  * This component is designed to be clickable, leading to the event's detail page.
  */
 const EventCard = ({ event, isSaved, onToggleSaved }) => {
-  const { name, color } =
-    categoryDetails[event?.category_id] || categoryDetails.default;
+    const { name, color } = categoryDetails[event.category_id] || categoryDetails.default;
 
-  // defensive: ensure description is a string before using .length / substring
-  const desc = String(event?.description ?? "");
-  const shortDescription =
-    desc.length > 100 ? desc.substring(0, 100) + "..." : desc;
+    // Truncate long descriptions to keep the card clean
+    const description = event.description || "";
+    const shortDescription = description.length > 100
+        ? description.substring(0, 100) + "..."
+        : description;
 
-  // defensive saved check
-  const saved =
-    typeof isSaved === "function" ? !!isSaved(event?.event_id) : false;
-  const onHeartClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (typeof onToggleSaved === "function") onToggleSaved(event);
-  };
+    const saved = isSaved(event.event_id);
+    const onHeartClick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onToggleSaved(event);
+    };
 
   console.log("EventCard received:", event);
 
@@ -161,43 +156,38 @@ export default function Discover() {
     if (events.length === 0)
       return <p>No upcoming events found. Why not create one?</p>;
 
-    const safeEvents = (events || []).filter(Boolean);
+        return (
+            <div className="event-grid">
+                {events.map((event) => (
+                    <EventCard
+                        key={event.event_id}
+                        event={event}
+                        isSaved={isSaved}
+                        onToggleSaved={toggleSaved}
+                    />
+                ))}
+            </div>
+        );
+    };
 
+    
     return (
-      <div className="event-grid">
-        {safeEvents.map((event) => (
-          <EventCard
-            key={event.event_id}
-            event={event}
-            isSaved={isSaved}
-            onToggleSaved={toggleSaved}
-          />
-        ))}
-      </div>
-    );
-  };
+      <main className="ts-page">
+          <div className="ts-header">
+              <h1 className="ts-title">Discover Events</h1>
+              <p className="ts-subtitle">Find out what's happening in your community</p>
+              <button onClick={refreshEvents} className="ts-refresh-btn" disabled={loading}>
+                  {loading ? "Refreshing..." : "Refresh"}
+              </button>
+          </div>
 
-  return (
-    <main className="ts-page">
-      <div className="ts-header">
-        <h1 className="ts-title">Discover Events</h1>
-        <p className="ts-subtitle">
-          Find out what's happening in your community
-        </p>
-        <button
-          onClick={refreshEvents}
-          className="ts-refresh-btn"
-          disabled={loading}
-        >
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
+          {successMessage && (
+            <div className="ts-success-message">
+                  {successMessage}
+              </div>
+          )}
 
-      {successMessage && (
-        <div className="ts-success-message">{successMessage}</div>
-      )}
-
-      {renderContent()}
-    </main>
+          {renderContent()}
+      </main>
   );
-}
+};

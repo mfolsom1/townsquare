@@ -30,8 +30,8 @@ const formatEventTimeRange = (startStr, endStr) => {
 export default function EventCard({ event, isSaved, onToggleSaved }) {
   const { name, color } = categoryDetails[event.category_id] || categoryDetails.default;
 
-  const shortDescription =
-    (event.description || "").length > 100 ? (event.description || "").substring(0, 100) + "..." : event.description || "";
+  const description = event.description || "";
+  const shortDescription = description.length > 100 ? description.substring(0, 100) + "..." : description;
 
   const saved = isSaved(event.event_id);
   const onHeartClick = (e) => {
