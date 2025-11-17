@@ -598,7 +598,7 @@ def register_routes(app):
 
     @app.route('/events', methods=['POST'])
     @require_organization
-    def create_event(firebase_uid):
+    def create_event(firebase_uid, user):
         try:
             # Parse JSON data from the request
             data = request.get_json()
@@ -686,7 +686,7 @@ def register_routes(app):
 
     @app.route('/events/<int:event_id>', methods=['DELETE'])
     @require_organization
-    def delete_event(firebase_uid, event_id):
+    def delete_event(firebase_uid, user, event_id):
         try:
             success = Event.delete_event(event_id, firebase_uid)
 
@@ -702,7 +702,7 @@ def register_routes(app):
 
     @app.route('/events/<int:event_id>/archive', methods=['POST'])
     @require_organization
-    def archive_event(firebase_uid, event_id):
+    def archive_event(firebase_uid, user, event_id):
         """Archive an event (soft delete)"""
         try:
             result = Event.archive_event(event_id, firebase_uid)
@@ -725,7 +725,7 @@ def register_routes(app):
 
     @app.route('/api/user/events/archived', methods=['GET'])
     @require_organization
-    def get_user_archived_events(firebase_uid):
+    def get_user_archived_events(firebase_uid, user):
         """Get all archived events for the current organization user"""
         try:
             # Get all events (including archived) then filter

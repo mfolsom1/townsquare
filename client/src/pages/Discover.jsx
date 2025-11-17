@@ -37,7 +37,7 @@ const formatEventTimeRange = (startStr, endStr) => {
         const endFormatted = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         return `${startFormatted} - ${endFormatted}`;
     }
-    
+
     // If it ends on a different day, show the full end date and time
     const endFormatted = endDate.toLocaleDateString('en-US', options);
     return `${startFormatted} to ${endFormatted}`;
@@ -50,19 +50,20 @@ const formatEventTimeRange = (startStr, endStr) => {
  * EventCard Component: Displays a single event with all its details.
  * This component is designed to be clickable, leading to the event's detail page.
  */
- const EventCard = ({ event, isSaved, onToggleSaved }) => {
+const EventCard = ({ event, isSaved, onToggleSaved }) => {
     const { name, color } = categoryDetails[event.category_id] || categoryDetails.default;
 
     // Truncate long descriptions to keep the card clean
-    const shortDescription = event.description.length > 100
-        ? event.description.substring(0, 100) + "..."
-        : event.description;
+    const description = event.description || "";
+    const shortDescription = description.length > 100
+        ? description.substring(0, 100) + "..."
+        : description;
 
     const saved = isSaved(event.event_id);
     const onHeartClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onToggleSaved(event);
+        e.preventDefault();
+        e.stopPropagation();
+        onToggleSaved(event);
     };
 
     return (
@@ -82,29 +83,29 @@ const formatEventTimeRange = (startStr, endStr) => {
                     aria-label={saved ? "Unsave event" : "Save event"}
                     onClick={onHeartClick}
                     title={saved ? "Remove from Saved" : "Save to Saved"}
-                    >
+                >
                     <span className="material-symbols-outlined event-heart">favorite</span>
-                    </button>
+                </button>
 
 
                 <span className="event-card-category-badge" style={{ backgroundColor: color }}>
                     {name}
                 </span>
             </div>
-            
+
             {/* Main content of the card */}
             <div className="event-card-body">
                 <h3 className="event-card-title">{event.title}</h3>
                 <p className="event-card-time">{formatEventTimeRange(event.start_time, event.end_time)}</p>
                 <p className="event-card-location">{event.location}</p>
                 <p className="event-card-description">{shortDescription}</p>
-                
+
                 {/* Attendee info, only shown if max_attendees is set */}
                 {event.max_attendees > 0 && (
                     <div className="event-card-attendees">
                         {/* A simple user icon SVG */}
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                            <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
                         </svg>
                         <span>Up to {event.max_attendees} people</span>
                     </div>
@@ -135,14 +136,14 @@ export default function Discover() {
 
         return (
             <div className="event-grid">
-                 {events.map((event) => (
-                   <EventCard
-                     key={event.event_id}
-                     event={event}
-                     isSaved={isSaved}
-                     onToggleSaved={toggleSaved}
-                   />
-                 ))}
+                {events.map((event) => (
+                    <EventCard
+                        key={event.event_id}
+                        event={event}
+                        isSaved={isSaved}
+                        onToggleSaved={toggleSaved}
+                    />
+                ))}
             </div>
         );
     };
@@ -156,13 +157,13 @@ export default function Discover() {
                     {loading ? "Refreshing..." : "Refresh"}
                 </button>
             </div>
-            
+
             {successMessage && (
                 <div className="ts-success-message">
                     {successMessage}
                 </div>
             )}
-            
+
             {renderContent()}
         </main>
     );
