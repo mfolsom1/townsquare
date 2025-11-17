@@ -28,36 +28,44 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       user,
-      signup: async ({ name, username, email, password }) => {
+      // inside useMemo in AuthProvider
+      signup: async ({ name, username, email, password, userType, organizationName, location }) => {
         // Validate that username is provided
         if (!username || username.trim().length === 0) {
           throw new Error("Username is required");
         }
-        
-        console.log("Signup attempt with:", { name, username, email }); // Debug log
-        
+
+        console.log("Signup attempt with:", { name, username, email, userType, organizationName });
+
         // Create user in Firebase
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-        
+
         // Update the user's display name in Firebase if provided
         if (name) await updateProfile(cred.user, { displayName: name });
-        
+
         // Get the ID token to authenticate with backend
         const idToken = await cred.user.getIdToken();
-        
+
         // Prepare additional user data for backend
         const userData = {
           username: username.trim(),
-          name: name
+          name,
+          userType: userType || "individual",
+          organizationName:
+            userType === "organization"
+              ? (organizationName || "").trim() || null
+              : null,
+          location: (location || "").trim() || "Unknown",
         };
-        
-        console.log("Sending to backend:", userData); // Debug log
-        
+
+        console.log("Sending to backend:", userData);
+
         // Create/verify user in backend database
         await verifyUserWithBackend(idToken, userData);
-        
+
         return cred.user;
       },
+
       // email/pass login
       login: async (email, password) => {
         const cred = await signInWithEmailAndPassword(auth, email, password);
