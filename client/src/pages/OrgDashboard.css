@@ -92,7 +92,7 @@
   background: var(--brand);
   color: #fff;
   border: none;
-  border-radius: 12px;
+  /* border-radius: 12px; */
   width: 100%;
   padding: 10px 14px;
   font-weight: 600;
@@ -122,10 +122,15 @@
   padding: 20px;
 }
 
+.org-events-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
 .org-events-title {
   font-weight: 800;
   font-size: 17px;
-  margin-bottom: 14px;
 }
 
 .org-events-grid {
@@ -208,11 +213,14 @@
   background: var(--brand);
   color: #fff;
   border: none;
-  padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: 360px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  padding: 10px 14px;
+  width: auto;            /* fixed horizontal width */
+  text-align: center;
+  margin-left: 12px;
 }
 
 .org-events-cta:hover {
@@ -244,13 +252,6 @@
   display: flex;
   justify-content: flex-end; /* right-align button */
   margin-top: 12px;
-}
-
-.org-events-cta {
-  padding: 12px 20px;
-  width: 220px;            /* fixed horizontal width */
-  text-align: center;
-  border-radius: 12px;
 }
 
 /* ===========================
@@ -301,48 +302,31 @@
   color: #fff;
 }
 
-/* Chart */
-.org-analytics-chart {
-  border: 1px solid var(--stroke);
-  border-radius: 12px;
-  padding: 16px 18px;
-  display: flex;
-  gap: 16px;
-  align-items: flex-end;
-  min-height: 170px;
-}
-
-.org-analytics-ylabel {
-  font-size: 11px;
-  color: var(--muted);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  transform: rotate(180deg);
-}
-
+.org-analytics-chart { display: flex; flex-direction: column; gap: 12px; }
 .org-analytics-bars {
   display: flex;
-  flex: 1;
-  align-items: flex-end;
-  gap: 18px;
+  gap: 6px;
+  align-items: end;
+  height: 140px; /* overall area */
+  padding: 6px 4px;
+  overflow-x: auto;
 }
-
 .org-analytics-bar-group {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  flex: 1;
+  width: 28px;
 }
-
 .org-analytics-bar {
-  width: 24px;
-  border-radius: 6px 6px 0 0;
+  width: 100%;
   background: var(--brand);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  border-radius: 4px 4px 0 0;
+  transition: height 160ms ease;
 }
-
 .org-analytics-xlabel {
   font-size: 11px;
+  margin-top: 6px;
   color: var(--muted);
+  /* writing-mode: vertical-rl; */
+  /* transform: rotate(180deg); */
 }

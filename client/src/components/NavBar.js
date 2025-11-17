@@ -18,10 +18,11 @@ export default function NavBar() {
   const nav = useNavigate();
   
   // redirect to /login if logging out
-  const handleLogout = async () => {
-    await logout();
-    nav("/login", { replace: true })
-  }
+  // const handleLogout = async () => {
+  //   await logout();
+  //   nav("/login", { replace: true })
+  // }
+  
 
   // Handle event creation success
   const handleEventCreated = (newEvent) => {
@@ -66,9 +67,9 @@ export default function NavBar() {
             {initials}
           </Link>
 
-          <button className="ts-btn" onClick={handleLogout} aria-label="Log out">
+          {/* <button className="ts-btn" onClick={handleLogout} aria-label="Log out">
             Log out
-          </button>
+          </button> */}
         </div>
       </header>
 

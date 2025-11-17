@@ -433,3 +433,25 @@ export async function updateOrganization(idToken, orgId, data) {
         body: JSON.stringify(data),
     }, idToken);
 }
+
+// ===============================
+// ===== Organization metrics ====
+// ===============================
+
+/**
+ * Fetch RSVPs per day for the current org for the last 30 days.
+ * @param {string} idToken - Firebase ID token for auth
+ * @returns {Promise<{success: boolean, total: number, timeseries: Array<{date:string,count:number}>}>}
+ */
+export async function getOrgRsvpsLast30(idToken) {
+    return apiRequest("/api/org/metrics/rsvps/30days", { method: "GET" }, idToken);
+}
+
+/**
+ * Fetch new followers per day for the current org for the last 30 days.
+ * @param {string} idToken - Firebase ID token for auth
+ * @returns {Promise<{success: boolean, total: number, timeseries: Array<{date:string,count:number}>}>}
+ */
+export async function getOrgFollowersLast30(idToken) {
+    return apiRequest("/api/org/metrics/followers/30days", { method: "GET" }, idToken);
+}

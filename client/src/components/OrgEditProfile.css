@@ -91,6 +91,7 @@
   padding: 8px 14px;
   border-radius: 999px;
   border: none;
+  cursor: pointer;
 }
 
 .org-btn-secondary {
@@ -98,4 +99,5 @@
   border: 1px solid var(--stroke);
   padding: 8px 14px;
   border-radius: 999px;
+  cursor: pointer;
 }

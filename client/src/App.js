@@ -44,7 +44,7 @@ function App() {
                         <Route path="/saved" element={<SavedEventsPage />} />
                         {/* TEMPORARY LINK TO ORG-DASH */}
                         <Route
-                          path="/test-org"
+                          path="/dashboard"
                           element={
                             <>
                               <OrgDashboardContainer />

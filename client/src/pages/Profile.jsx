@@ -88,15 +88,15 @@ export default function ProfilePage({
                 </div>
               )}
               <div className="pf-row">
-                <span className="material-symbols-outlined">group</span>
+                <span className="pf-friends material-symbols-outlined">group</span>
                 <div className="pf-friends"><strong>{friends}</strong> Friends</div>
               </div>
               {study    && <div className="pf-sub">{study}</div>}
               {bioLocal && <div className="pf-sub pf-bio">{bioLocal}</div>}
             </div>
-              <button type="button" className="pf-btn" onClick={openEdit}>
-                Edit Profile
-              </button>
+            <button type="button" className="pf-btn" onClick={openEdit}>
+              Edit Profile
+            </button>
           </div>
 
           <div className="pf-card pf-interests">
