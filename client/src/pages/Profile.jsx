@@ -4,6 +4,7 @@ import CreateEvent from "../components/CreateEvent.js";
 import EditProfile from "../components/EditProfile.jsx";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { Link, useNavigate } from "react-router-dom";
+import { getFollowers } from "../api.js";
 
 const initialsFromName = (name = "User") =>
   name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase()).join("") || "U";
@@ -34,15 +35,23 @@ export default function ProfilePage({
   const [usernameLocal, setUsernameLocal] = useState(username);
   const [bioLocal, setBioLocal]           = useState(bio);
   const [locLocal, setLocLocal]           = useState(location);
+  const [followerCount, setFollowerCount] = useState(0);
   const initials = initialsFromName(nameLocal);
 
     // sync local state if container props change (e.g., after refetch)
-    useEffect(() => {
+  useEffect(() => {
     setNameLocal(fullName);
     setUsernameLocal(username);
     setBioLocal(bio);
     setLocLocal(location);
-  }, [fullName, username, bio, location]);
+
+    (async () => {
+      const idToken = await user.getIdToken();
+      const followers = await getFollowers(idToken);
+      setFollowerCount(followers.count)
+    })()
+
+  }, [fullName, username, bio, location, user]);
 
   const hasMyEvents = myEvents.length > 0;
   const hasGoingTo  = goingTo.length  > 0;
@@ -98,7 +107,7 @@ export default function ProfilePage({
               )}
               <div className="pf-row">
                 <span className="pf-friends material-symbols-outlined">group</span>
-                <div className="pf-friends"><strong>{friends}</strong> Friends</div>
+                <div className="pf-friends"><strong>{followerCount}</strong> Friends</div>
               </div>
               {study    && <div className="pf-sub">{study}</div>}
               {bioLocal && <div className="pf-sub pf-bio">{bioLocal}</div>}

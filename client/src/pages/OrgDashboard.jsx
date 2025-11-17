@@ -8,9 +8,22 @@ import {
   getUserProfile,
   getUserOrganizedEvents,
   verifyUserWithBackend,
+  getFollowers,
   getOrgRsvpsLast30,
   getOrgFollowersLast30,
 } from "../api.js";
+
+const FALLBACK_ORG = {
+  name: "Umbrella Corp",
+  handle: "@umbrella",
+  location: "Gainesville, FL",
+  email: "email@example.com",
+  followers: 10,
+  bannerUrl: "https://www.google.com/url?sa=i&url=https%3A%2F%2Fdesignbundles.net%2Fladadikart%2F2893326-umbrellas-in-hands-banner-rainy-day-storm-and-hand&psig=AOvVaw07DHeE7a-r6GSWYf3Mo78O&ust=1763036993943946000&source=images&cd=vfe&opi=89978449&ved=0CBYQjRxqFwoTCNDxv-XO7JADFQAAAAAdAAAAABAE=format&fit=crop",
+  avatarUrl: null,
+  about: "Welcome to Umbrella Corporations.",
+  tags: ["Arts", "Music", "Tech", "Food & Drink"],
+};
 
 const initialsFromName = (name = "Organization") =>
   name
@@ -26,33 +39,22 @@ export default function OrgDashboard({
   onSaveOrgProfile,
   initialOrg,
 }) {
+  // initialize from fallback + any initial props (do not store reference to FALLBACK_ORG)
+  const [org, setOrg] = useState(() => ({
+    ...FALLBACK_ORG,
+    ...(initialOrg || {}),
+  }));
+  const [events, setEvents] = useState(propsEvents || []);
+
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // org state is seeded from container fallback but will be replaced by backend data
-  const fallbackOrg = initialOrg || {
-    name: "Umbrella Corp",
-    handle: "@umbrella",
-    location: "Gainesville, FL",
-    email: "email@example.com",
-    followers: 8,
-    bannerUrl:
-      "https://www.google.com/url?sa=i&url=https%3A%2F%2Fdesignbundles.net%2Fladadikart%2F2893326-umbrellas-in-hands-banner-rainy-day-storm-and-hand&psig=AOvVaw07DHeE7a-r6GSWYf3Mo78O&ust=1763036993943946000&source=images&cd=vfe&opi=89978449&ved=0CBYQjRxqFwoTCNDxv-XO7JADFQAAAAAdAAAAABAE=format&fit=crop",
-    avatarUrl: null,
-    about: "Welcome to Umbrella Corporations.",
-    tags: ["Arts", "Music", "Tech", "Food & Drink"],
-  };
-  
-  const [org, setOrg] = useState(null);
-  const [events, setEvents] = useState(propsEvents);
   const [analyticsRsvps, setAnalyticsRsvps] = useState([]); // { date, count }
   const [analyticsFollowers, setAnalyticsFollowers] = useState([]);
   const [selectedAnalytics, setSelectedAnalytics] = useState("rsvps"); // "rsvps" | "followers"
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
-  
 
   // helper to normalize event objects for this dashboard UI
   const formatEventForUI = (event) => ({
@@ -68,8 +70,8 @@ export default function OrgDashboard({
   const nav = useNavigate();
   const handleLogout = async () => {
     await logout();
-    nav("/login", { replace: true })
-  }
+    nav("/login", { replace: true });
+  };
 
   // Load authenticated user's org profile and organized events (same pattern as ProfileContainer)
   useEffect(() => {
@@ -83,70 +85,99 @@ export default function OrgDashboard({
         setLoading(true);
         const idToken = await user.getIdToken();
 
-        const load = async () => {
-          const rawProfile = await getUserProfile(idToken);
-          // attempt to map backend fields to org UI shape
-          const profile = rawProfile || {};
-          console.log(rawProfile)
-          const orgData = {
-            name:
-              profile.name ||
-              profile.organization_name ||
-              profile.displayName ||
-              fallbackOrg.name,
-            handle: profile.handle || profile.username || fallbackOrg.handle,
-            location: profile.location || fallbackOrg.location,
-            email: profile.email || fallbackOrg.email,
-            followers: profile.followers ?? fallbackOrg.followers,
-            bannerUrl:
-              profile.bannerUrl || profile.banner_url || fallbackOrg.bannerUrl,
-            avatarUrl:
-              profile.avatarUrl || profile.avatar_url || fallbackOrg.avatarUrl,
-            about: profile.about || profile.description || fallbackOrg.about,
-            tags: Array.isArray(profile.tags) ? profile.tags : fallbackOrg.tags,
-          };
-          if (!alive) return;
-          setOrg((prev) => ({ ...prev, ...orgData }));
+        // fetch profile and organized events in a simple, robust way
+        const raw = await getUserProfile(idToken);
+        const profile = raw && raw.user ? raw.user : raw || {};
+        const followers = await getFollowers(idToken);
+        const followerCount = followers ? followers.count : 0;
 
-          // load organized events
-          try {
-            const res = await getUserOrganizedEvents(idToken);
-            const organized = res?.events || [];
-            if (!alive) return;
-            setEvents(organized.map(formatEventForUI));
-          } catch (e) {
-            console.warn("Failed to fetch organized events:", e);
-            if (!alive) return;
-            setEvents([]);
-          }
+        // derive a display name and stable defaults
+        const nameFromProfile =
+          profile.organization_name ||
+          [profile.first_name, profile.last_name]
+            .filter(Boolean)
+            .join(" ")
+            .trim() ||
+          profile.name ||
+          profile.displayName ||
+          profile.username ||
+          FALLBACK_ORG.name;
+
+        const mapped = {
+          name: nameFromProfile,
+          handle: profile.username || FALLBACK_ORG.handle,
+          location: profile.location || FALLBACK_ORG.location,
+          email: profile.email || FALLBACK_ORG.email,
+          followers: followerCount,
+          bannerUrl:
+            profile.bannerUrl || FALLBACK_ORG.bannerUrl,
+          avatarUrl:
+            profile.avatarUrl || FALLBACK_ORG.avatarUrl,
+          about:
+            profile.about ||
+            profile.description ||
+            profile.bio ||
+            FALLBACK_ORG.about,
+          tags: Array.isArray(profile.tags)
+            ? profile.tags
+            : profile.interests || FALLBACK_ORG.tags,
         };
 
+        if (!alive) return;
+        setOrg((prev) => ({ ...prev, ...mapped }));
+
+        // organized events (keep existing formatter)
         try {
-          await load();
+          const res = await getUserOrganizedEvents(idToken);
+          const organized = res?.events || [];
+          if (!alive) return;
+          setEvents(organized.map(formatEventForUI));
         } catch (e) {
-          const msg = String(e?.message || "").toLowerCase();
-          if (msg.includes("user not found") || msg.includes("404")) {
-            // create/verify backend user and retry (same flow as ProfileContainer)
-            await verifyUserWithBackend(idToken, {
-              username: (user?.email || "user").split("@")[0],
-              name: user?.displayName || "New Organization",
-              email: user?.email || "",
-            });
-            if (!alive) return;
-            await load();
-          } else {
-            throw e;
-          }
+          console.warn("Failed to fetch organized events:", e);
+          if (!alive) return;
+          setEvents([]);
         }
       } catch (e) {
-        if (!alive) return;
-        setError(e?.message || "Failed to load organization dashboard");
+        const msg = String(e?.message || "").toLowerCase();
+        if (msg.includes("user not found") || msg.includes("404")) {
+          try {
+            const idToken = user ? await user.getIdToken() : null;
+            if (idToken) {
+              await verifyUserWithBackend(idToken, {
+                username: (user?.email || "user").split("@")[0],
+                name: user?.displayName || FALLBACK_ORG.name,
+                email: user?.email || "",
+              });
+              // retry once
+              if (!alive) return;
+              const idToken2 = await user.getIdToken();
+              const raw2 = await getUserProfile(idToken2);
+              const profile2 = raw2 && raw2.user ? raw2.user : raw2 || {};
+              const nameFromProfile2 =
+                profile2.organization_name ||
+                [profile2.first_name, profile2.last_name]
+                  .filter(Boolean)
+                  .join(" ")
+                  .trim() ||
+                profile2.name ||
+                profile2.displayName ||
+                profile2.username ||
+                FALLBACK_ORG.name;
+              setOrg((prev) => ({ ...prev, name: nameFromProfile2 }));
+            }
+          } catch (inner) {
+            if (!alive) return;
+            setError(inner?.message || "Failed to verify user");
+          }
+        } else {
+          if (!alive) return;
+          setError(e?.message || "Failed to load organization dashboard");
+        }
       } finally {
         if (!alive) return;
         setLoading(false);
       }
     })();
-
     return () => {
       alive = false;
     };
@@ -236,27 +267,22 @@ export default function OrgDashboard({
   const openEdit = () => setEditOpen(true);
   const closeEdit = () => setEditOpen(false);
 
+  // handle save: merge optimistic UI update and persist
   const handleSaveProfile = async (payload) => {
-    // update UI immediately
-    setOrg((prev) => ({
-      ...prev,
-      name: payload.name ?? prev.name,
-      email: payload.email ?? prev.email,
-      location: payload.location ?? prev.location,
-      about: payload.about ?? prev.about,
-      tags: Array.isArray(payload.tags) ? payload.tags : prev.tags,
-    }));
-
-    // persist via callback if provided
+    // optimistic merge
+    setOrg((prev) => ({ ...prev, ...payload }));
     try {
       if (typeof onSaveOrgProfile === "function") {
-        await onSaveOrgProfile(payload);
+        const saved = await onSaveOrgProfile(payload);
+        // if API returns updated profile, merge that too
+        if (saved && typeof saved === "object") {
+          setOrg((prev) => ({ ...prev, ...saved }));
+        }
       }
     } catch (e) {
       console.error("Failed to save organization profile:", e);
+      // optionally refetch to recover authoritative state
     }
-
-    return payload;
   };
 
   if (loading) return <div style={{ padding: 16 }}>Loading dashboard…</div>;
@@ -332,7 +358,11 @@ export default function OrgDashboard({
               </div>
             </div>
 
-            <button className="org-logout-btn" type="button" onClick={handleLogout}>
+            <button
+              className="org-logout-btn"
+              type="button"
+              onClick={handleLogout}
+            >
               Logout
             </button>
           </div>
