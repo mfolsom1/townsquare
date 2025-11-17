@@ -8,7 +8,6 @@ export default function NavBarLeft() {
   return (
     <nav className="lts-nav">
       <div className="lts-brand"> 
-        {/* ...existing brand content... */}
       </div>
 
       <div className="lts-center">
@@ -16,8 +15,6 @@ export default function NavBarLeft() {
         <NavLink to="/following" className="lts-tab">Following</NavLink>
         <NavLink to="/saved" className="lts-tab">Saved Events</NavLink>
       </div>
-
-      {/* ...existing right / footer markup (create button, avatar, etc.) ... */}
     </nav>
   );
 }

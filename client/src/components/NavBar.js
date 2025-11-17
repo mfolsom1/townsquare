@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
 import CreateEventModal from "./CreateEvent";
 import { useAuth } from "../auth/AuthContext";
 import SearchBar from "./SearchBar";
 import { useEvents } from "../contexts/EventContext";
+import { getUserProfile } from "../api";
 import "./NavBar.css";
 
 export default function NavBar() { 
@@ -11,6 +12,8 @@ export default function NavBar() {
   const [openCreate, setOpenCreate] = useState (false);
 
   const { user, logout, initials } = useAuth();
+  const [error, setError] = useState("");
+  const [userProfile, setUserProfile] = useState(null);
   const { addEvent } = useEvents();
   const location = useLocation();
 
@@ -22,7 +25,29 @@ export default function NavBar() {
   //   await logout();
   //   nav("/login", { replace: true })
   // }
+  const isOrganization = userProfile?.user_type === 'organization';
   
+  useEffect(() => {
+    let cancelled = false;
+    async function loadUserProfile() {
+      if (!user) return;
+      try {
+        setError("");
+        const idToken = await user.getIdToken();
+        const response = await getUserProfile(idToken);
+        if (!cancelled) {
+          setUserProfile(response?.user || null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError("Failed to load user profile. Please try again.");
+          setUserProfile(null);
+        }
+      }
+    }
+    loadUserProfile();
+    return () => { cancelled = true; };
+  }, [user]);
 
   // Handle event creation success
   const handleEventCreated = (newEvent) => {
@@ -63,7 +88,7 @@ export default function NavBar() {
           </button>
 
           {/* avatar links to account profile */}
-          <Link to="/profile" className="ts-avatar" aria-label="Open profile" title={user?.displayName || user?.email || "Account"}>
+          <Link to={isOrganization ? "/dashboard" : "/profile"} className="ts-avatar" aria-label="Open profile" title={user?.displayName || user?.email || "Account"}>
             {initials}
           </Link>
 

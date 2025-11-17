@@ -46,7 +46,7 @@ export default function OrgDashboard({
     tags: ["Arts", "Music", "Tech", "Food & Drink"],
   };
   
-  const [org, setOrg] = useState(fallbackOrg);
+  const [org, setOrg] = useState(null);
   const [events, setEvents] = useState(propsEvents);
   const [analyticsRsvps, setAnalyticsRsvps] = useState([]); // { date, count }
   const [analyticsFollowers, setAnalyticsFollowers] = useState([]);

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import "./Profile.css";
 import CreateEvent from "../components/CreateEvent.js"; 
 import EditProfile from "../components/EditProfile.jsx";
-import { Link } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext.jsx";
+import { Link, useNavigate } from "react-router-dom";
 
 const initialsFromName = (name = "User") =>
   name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase()).join("") || "U";
@@ -20,6 +21,14 @@ export default function ProfilePage({
   onCreateEvent,               // optional callback(newEvent)
   onSaveProfile
 }) {
+  
+  const { user, logout } = useAuth();
+  const nav = useNavigate();
+  const handleLogout = async () => {
+    await logout();
+    nav("/login", { replace: true })
+  }
+
   // keep local snapshot so UI reflects edits immediately
   const [nameLocal, setNameLocal]         = useState(fullName);
   const [usernameLocal, setUsernameLocal] = useState(username);
@@ -109,11 +118,9 @@ export default function ProfilePage({
               <div className="pf-empty">Interests from your profile.</div>
             )}
           </div>
-          
-          {/*TEMP BTN */}
-          <Link to="/test-org" className="temp-org-btn">
-            Org Dashboard Preview
-          </Link>
+          <button className="org-logout-btn" type="button" onClick={handleLogout}>
+              Logout
+          </button>
 
         </section>
 
