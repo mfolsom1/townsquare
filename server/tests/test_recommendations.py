@@ -4,15 +4,16 @@ Usage from server directory: python -m pytest tests/test_recommendations.py -s
 Or run directly: python tests/test_recommendations.py
 Modify TEST_USERNAME to test different users
 """
+from ml.recommend import RecommendationAPI
 import sys
 import os
 from dotenv import load_dotenv
 
 # Add project root to path for ml module imports
-project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
+project_root = os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), '..', '..')
 sys.path.insert(0, project_root)
 
-from ml.recommend import RecommendationAPI
 
 # Load .env from server directory
 server_env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -20,7 +21,7 @@ load_dotenv(server_env_path)
 
 
 # Configure test user here
-TEST_USERNAME = "test_user15"
+TEST_USERNAME = "test_user16"
 
 
 def test_recommendations():

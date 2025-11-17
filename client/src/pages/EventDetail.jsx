@@ -296,7 +296,7 @@ export default function EventDetail() {
 
         <div className="event-description">
           <h2>About this Event</h2>
-          <p>{event.description}</p>
+          <p>{event.description || "No description provided."}</p>
         </div>
       </div>
     </main>
