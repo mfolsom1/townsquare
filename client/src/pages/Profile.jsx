@@ -79,23 +79,24 @@ export default function ProfilePage({
               <h1 className="pf-name">{nameLocal}</h1>
               <div className="pf-handle">@{usernameLocal}</div>
 
-              <div className="pf-row">
-                <div className="pf-friends"><strong>{friends}</strong> Friends</div>
-                <button type="button" className="pf-btn" onClick={openEdit}>
-                  Edit Profile
-                </button>
-              </div>
 
               {/*Location Display */}
                {locLocal && (
                  <div className="pf-sub pf-location pf-location-after">
-                  <span>{locLocal}</span>
                   <span className="material-symbols-outlined" aria-hidden="true">location_on</span>
+                  <span>{locLocal}</span>
                 </div>
               )}
+              <div className="pf-row">
+                <span className="material-symbols-outlined">group</span>
+                <div className="pf-friends"><strong>{friends}</strong> Friends</div>
+              </div>
               {study    && <div className="pf-sub">{study}</div>}
               {bioLocal && <div className="pf-sub pf-bio">{bioLocal}</div>}
             </div>
+              <button type="button" className="pf-btn" onClick={openEdit}>
+                Edit Profile
+              </button>
           </div>
 
           <div className="pf-card pf-interests">

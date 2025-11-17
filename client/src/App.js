@@ -27,19 +27,6 @@ function App() {
 
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-
-              {/* TEMPORARY LINK TO ORG-DASH */}
-              <Route
-              path="/test-org"
-              element={
-                <>
-                  <NavBar />
-                  <OrgDashboardContainer />
-                </>
-              }
-            />
-
-
             <Route
                 path="/*"
                 element={
@@ -55,6 +42,15 @@ function App() {
                         <Route path="/events/:eventId" element={<EventDetail />} />
                         <Route path="/following" element={<Following />} />
                         <Route path="/saved" element={<SavedEventsPage />} />
+                        {/* TEMPORARY LINK TO ORG-DASH */}
+                        <Route
+                          path="/test-org"
+                          element={
+                            <>
+                              <OrgDashboardContainer />
+                            </>
+                          }
+                        />
                         <Route path="*" element={<Discover />} />
                         <Route
                           path="/profile"

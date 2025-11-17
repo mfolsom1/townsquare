@@ -1,7 +1,13 @@
+@import "Style.css";
 /* ===== Org Dashboard — compact & profile-colored ===== */
 .org-page{
   color:var(--text);
   background:var(--page);
+  /* Reserve space for the fixed left nav so the dashboard fills to the right */
+  margin-left: var(--nav-left-width, 160px); /* uses nav variable, fallback to 160px */
+  width: calc(100% - var(--nav-left-width, 160px));
+  box-sizing: border-box;
+  min-height: 100vh;
 }
 
 /* Banner */
@@ -76,6 +82,10 @@
   .org-hero{height:120px;}
   .org-avatar{left:24px;bottom:-52px;width:132px;height:132px;}
   .org-change-avatar{left:calc(24px + 132px - 18px);}
+  .org-page {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 /* Logout button */
 .org-logout-btn {

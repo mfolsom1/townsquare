@@ -25,7 +25,7 @@
 /* PAGE */
 .pf{
   color:var(--text);
-  background:var(--page);
+  background:var(--color-tertiary);
   min-height:100dvh;
   padding:28px 24px 44px;
 }
@@ -61,7 +61,7 @@
   font-weight:700; font-size:60px; color:#9ca3af;
 }
 .pf-name{ margin:0; font-size:26px; font-weight:800; text-align:left; }
-.pf-handle{ color:var(--muted) !important; font-weight:500; font-size:19px; }
+.pf-handle{ color:var(--muted) !important; font-weight:500; font-size:16px; }
 .pf-meta{ display:grid; gap:10px; margin-top:4px; }
 .pf-sub{ margin-top:6px; color:var(--muted); font-size:16px; line-height:1.6; display:flex; align-items:center; gap:8px; }
 
@@ -71,7 +71,7 @@
   font-size:20px; line-height:1; color:var(--muted) !important;
   font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
 }
-.pf-location-after .material-symbols-outlined{ margin-left:2px; }
+/* .pf-location-after .material-symbols-outlined{ margin-left:2px; } */
 
 /* Friends + Edit row */
 .pf-row{ display:flex; align-items:center; width:100%; margin-top:12px; }
