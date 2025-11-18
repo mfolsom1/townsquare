@@ -284,8 +284,8 @@ export async function getUserRsvps(idToken) {
  * @param {string} idToken - The Firebase ID token for authentication.
  * @returns {Promise<Array<object>>} A list of friend-RSVP'd events.
  */
-export async function getFriendEvents(idToken) {
-    return apiRequest("/api/friends/events", { method: "GET" }, idToken);
+export async function getFriendRsvps(idToken) {
+    return apiRequest("/api/friends/rsvps", { method: "GET" }, idToken);
 }
 
 /**
