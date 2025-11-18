@@ -1,18 +1,25 @@
 @import "../pages/Style.css";
 
+:root {
+  --nav-left-width: 10vw; /* adjust as needed, can use px if preferred (e.g. 160px) */
+}
+
+/* keep layout consistent and ensure nav stays on top */
 .lts-nav {
-  position: sticky;
+  position: fixed;   /* <- changed from sticky */
   top: 0;
   left: 0;
   height: 100vh;
-  width: 200px;
+  width: var(--nav-left-width);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   background: var(--color-navbar-bg);
   border-right: 1px solid var(--color-accent-2);
   padding: 60px 16px;
-  z-index: 1000;
+  z-index: 900;      /* high enough to sit above content */
+  box-sizing: border-box;
+  overflow-y: auto;   /* allow nav content to scroll independently */
 }
 
 .lts-brand {
@@ -64,6 +71,7 @@
   gap: 12px;
   border-top: 1px solid rgba(0, 0, 0, 0.1);
   padding-top: 16px;
+  z-index: 1; /* optional: ensure avatar/button areas don't overlap */
 }
 
 .lts-create {

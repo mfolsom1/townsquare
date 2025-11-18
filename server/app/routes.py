@@ -1,6 +1,7 @@
 from datetime import datetime
 from flask import Flask, jsonify, request
 from .models import Event, RSVP, User
+from .config import Config
 from firebase_admin import auth
 from .auth_utils import require_auth, require_organization
 import pyodbc
@@ -598,10 +599,16 @@ def register_routes(app):
 
     @app.route('/events', methods=['POST'])
     @require_organization
-    def create_event(firebase_uid, user):
+    def create_event(firebase_uid=None, user=None, **kwargs):
+        # normalize uid whether decorator passed firebase_uid or a user object
+        if not firebase_uid:
+            firebase_uid = getattr(user, 'firebase_uid', None) or getattr(user, 'uid', None)
+        if not firebase_uid:
+            return jsonify({"error": "Unauthorized"}), 401
+
         try:
             # Parse JSON data from the request
-            data = request.get_json()
+            data = request.get_json() or {}
 
             # Validate required fields
             required_fields = ['Title', 'StartTime',
@@ -832,17 +839,17 @@ def register_routes(app):
         return jsonify({"error": "Not found"}), 404
 
     # ===== Friend Event Routes =====
-    @app.route('/api/friends/events', methods=['GET'])
+    @app.route('/api/friends/rsvps', methods=['GET'])
     @require_auth
-    def get_friend_events(firebase_uid):
+    def get_friend_rsvps(firebase_uid):
         try:
-            events = Event.get_friend_events(firebase_uid)
+            events = Event.get_friend_rsvps(firebase_uid)
             return jsonify({
                 "success": True,
                 "events": [event.to_dict() for event in events]
             })
         except Exception as e:
-            return jsonify({"error": f"Failed to get friend events: {str(e)}"}), 500
+            return jsonify({"error": f"Failed to get friend rsvps: {str(e)}"}), 500
 
     @app.route('/api/friends/created', methods=['GET'])
     @require_auth
@@ -867,3 +874,93 @@ def register_routes(app):
             })
         except Exception as e:
             return jsonify({"error": f"Failed to get friend feed: {str(e)}"}), 500
+
+    @app.route("/api/org/metrics/rsvps/30days", methods=["GET"])
+    @require_organization
+    def org_rsvps_30days(firebase_uid=None, user=None, **kwargs):
+        """
+        Returns RSVPs per day for the current org for the last 30 days.
+        Response: { success: True, total: N, timeseries: [{ date: 'YYYY-MM-DD', count: N }, ...] }
+        """
+        # normalize firebase uid if decorator provided `user` object
+        if not firebase_uid:
+            firebase_uid = getattr(user, "firebase_uid", None) or getattr(user, "uid", None)
+        if not firebase_uid:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        cfg = Config()
+        conn = None
+        try:
+            conn = pyodbc.connect(cfg.azure_sql_connection_string)
+            cursor = conn.cursor()
+            # last 30 days including today
+            q = """
+                SELECT CAST(r.CreatedAt AS DATE) AS day, COUNT(*) AS cnt
+                FROM RSVPs r
+                INNER JOIN Events e ON r.EventID = e.EventID
+                WHERE e.OrganizerUID = ? AND r.CreatedAt >= DATEADD(day, -29, CAST(GETDATE() AS DATE))
+                GROUP BY CAST(r.CreatedAt AS DATE)
+                ORDER BY day ASC
+            """
+            cursor.execute(q, (firebase_uid,))
+            rows = cursor.fetchall()
+            timeseries = [{"date": row[0].strftime("%Y-%m-%d") if hasattr(row[0], "strftime") else str(row[0]), "count": int(row[1])} for row in rows]
+
+            total_q = """
+                SELECT COUNT(*)
+                FROM RSVPs r
+                INNER JOIN Events e ON r.EventID = e.EventID
+                WHERE e.OrganizerUID = ? AND r.CreatedAt >= DATEADD(day, -29, CAST(GETDATE() AS DATE))
+            """
+            cursor.execute(total_q, (firebase_uid,))
+            total = int(cursor.fetchone()[0] or 0)
+
+            return jsonify({"success": True, "total": total, "timeseries": timeseries}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if conn:
+                conn.close()
+
+    @app.route("/api/org/metrics/followers/30days", methods=["GET"])
+    @require_organization
+    def org_followers_30days(firebase_uid=None, user=None, **kwargs):
+        """
+        Returns new followers per day for the current org for the last 30 days.
+        Response: { success: True, total: N, timeseries: [{ date: 'YYYY-MM-DD', count: N }, ...] }
+        """
+        if not firebase_uid:
+            firebase_uid = getattr(user, "firebase_uid", None) or getattr(user, "uid", None)
+        if not firebase_uid:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        cfg = Config()
+        conn = None
+        try:
+            conn = pyodbc.connect(cfg.azure_sql_connection_string)
+            cursor = conn.cursor()
+            q = """
+                SELECT CAST(sc.CreatedAt AS DATE) AS day, COUNT(*) AS cnt
+                FROM SocialConnections sc
+                WHERE sc.FollowingUID = ? AND sc.CreatedAt >= DATEADD(day, -29, CAST(GETDATE() AS DATE))
+                GROUP BY CAST(sc.CreatedAt AS DATE)
+                ORDER BY day ASC
+            """
+            cursor.execute(q, (firebase_uid,))
+            rows = cursor.fetchall()
+            timeseries = [{"date": row[0].strftime("%Y-%m-%d") if hasattr(row[0], "strftime") else str(row[0]), "count": int(row[1])} for row in rows]
+
+            total_q = """
+                SELECT COUNT(*)
+                FROM SocialConnections sc
+                WHERE sc.FollowingUID = ? AND sc.CreatedAt >= DATEADD(day, -29, CAST(GETDATE() AS DATE))
+            """
+            cursor.execute(total_q, (firebase_uid,))
+            total = int(cursor.fetchone()[0] or 0)
+
+            return jsonify({"success": True, "total": total, "timeseries": timeseries}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if conn:
+                conn.close()
