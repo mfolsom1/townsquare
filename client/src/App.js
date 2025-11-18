@@ -15,6 +15,7 @@ import ProfileContainer from "./pages/ProfileContainer";
 import Profile from "./pages/Profile";
 import SavedEventsPage from "./pages/SavedEventsPage";
 import Following from "./pages/Following"
+import OrgDashboardContainer from "./pages/OrgDashboardContainer";
 
 function App() {
   return (
@@ -25,7 +26,6 @@ function App() {
 
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-
             <Route
                 path="/*"
                 element={
@@ -41,6 +41,15 @@ function App() {
                         <Route path="/events/:eventId" element={<EventDetail />} />
                         <Route path="/following" element={<Following />} />
                         <Route path="/saved" element={<SavedEventsPage />} />
+                        {/* TEMPORARY LINK TO ORG-DASH */}
+                        <Route
+                          path="/dashboard"
+                          element={
+                            <>
+                              <OrgDashboardContainer />
+                            </>
+                          }
+                        />
                         <Route path="*" element={<Discover />} />
                         <Route
                           path="/profile"

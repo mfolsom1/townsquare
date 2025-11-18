@@ -284,8 +284,8 @@ export async function getUserRsvps(idToken) {
  * @param {string} idToken - The Firebase ID token for authentication.
  * @returns {Promise<Array<object>>} A list of friend-RSVP'd events.
  */
-export async function getFriendEvents(idToken) {
-    return apiRequest("/api/friends/events", { method: "GET" }, idToken);
+export async function getFriendRsvps(idToken) {
+    return apiRequest("/api/friends/rsvps", { method: "GET" }, idToken);
 }
 
 /**
@@ -403,4 +403,55 @@ export async function getUserPublicInfo(firebaseUid) {
     return apiRequest(`/api/user/${firebaseUid}/public`, {
         method: "GET"
     });
+}
+
+
+//===============================
+// ===== Organizations =========
+//===============================
+
+/**
+ * Fetch a single organization by ID.
+ * Requires auth because membership / permissions are checked on the backend.
+ * @param {string} idToken - Firebase ID token
+ * @param {number|string} orgId - Organization ID
+ */
+export async function getOrganization(idToken, orgId) {
+    return apiRequest(`/api/organizations/${orgId}`, { method: "GET" }, idToken);
+}
+
+/**
+ * Update an organization.
+ * Backend route (from routes.py) allows fields like 'name' and 'description'.
+ * @param {string} idToken - Firebase ID token
+ * @param {number|string} orgId - Organization ID
+ * @param {object} data - Fields to update (e.g. { name, description })
+ */
+export async function updateOrganization(idToken, orgId, data) {
+    return apiRequest(`/api/organizations/${orgId}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+    }, idToken);
+}
+
+// ===============================
+// ===== Organization metrics ====
+// ===============================
+
+/**
+ * Fetch RSVPs per day for the current org for the last 30 days.
+ * @param {string} idToken - Firebase ID token for auth
+ * @returns {Promise<{success: boolean, total: number, timeseries: Array<{date:string,count:number}>}>}
+ */
+export async function getOrgRsvpsLast30(idToken) {
+    return apiRequest("/api/org/metrics/rsvps/30days", { method: "GET" }, idToken);
+}
+
+/**
+ * Fetch new followers per day for the current org for the last 30 days.
+ * @param {string} idToken - Firebase ID token for auth
+ * @returns {Promise<{success: boolean, total: number, timeseries: Array<{date:string,count:number}>}>}
+ */
+export async function getOrgFollowersLast30(idToken) {
+    return apiRequest("/api/org/metrics/followers/30days", { method: "GET" }, idToken);
 }

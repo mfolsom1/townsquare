@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./Following.css";
-import { getFriendEvents, getFriendCreatedEvents } from "../api";
+import { getFriendRsvps, getFriendCreatedEvents } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
 import SavedEvents from "../hooks/SavedEvents";
@@ -32,7 +32,7 @@ export default function Following() {
 
         /* Fetch events from friends: RSVPs and created events */
         const [rsvpResponse, createdResponse] = await Promise.all([
-          getFriendEvents(idToken),
+          getFriendRsvps(idToken),
           getFriendCreatedEvents(idToken)
         ]);
 
@@ -61,10 +61,10 @@ export default function Following() {
   }, [user, navigate]);
 
   return (
-    <main className="main-container">
+    <main className="ts-page">
       <div>
-        <h1 className="page-header">Following</h1>
-        <p className="page-subheading">
+        <h1 className="ts-title">Following</h1>
+        <p className="ts-subtitle">
           Events from people you follow
         </p>
       </div>

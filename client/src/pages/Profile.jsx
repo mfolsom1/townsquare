@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import "./Profile.css";
 import CreateEvent from "../components/CreateEvent.js"; 
 import EditProfile from "../components/EditProfile.jsx";
+import { useAuth } from "../auth/AuthContext.jsx";
+import { Link, useNavigate } from "react-router-dom";
+import { getFollowers } from "../api.js";
 
 const initialsFromName = (name = "User") =>
   name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase()).join("") || "U";
@@ -19,20 +22,36 @@ export default function ProfilePage({
   onCreateEvent,               // optional callback(newEvent)
   onSaveProfile
 }) {
+  
+  const { user, logout } = useAuth();
+  const nav = useNavigate();
+  const handleLogout = async () => {
+    await logout();
+    nav("/login", { replace: true })
+  }
+
   // keep local snapshot so UI reflects edits immediately
   const [nameLocal, setNameLocal]         = useState(fullName);
   const [usernameLocal, setUsernameLocal] = useState(username);
   const [bioLocal, setBioLocal]           = useState(bio);
   const [locLocal, setLocLocal]           = useState(location);
+  const [followerCount, setFollowerCount] = useState(0);
   const initials = initialsFromName(nameLocal);
 
     // sync local state if container props change (e.g., after refetch)
-    useEffect(() => {
+  useEffect(() => {
     setNameLocal(fullName);
     setUsernameLocal(username);
     setBioLocal(bio);
     setLocLocal(location);
-  }, [fullName, username, bio, location]);
+
+    (async () => {
+      const idToken = await user.getIdToken();
+      const followers = await getFollowers(idToken);
+      setFollowerCount(followers.count)
+    })()
+
+  }, [fullName, username, bio, location, user]);
 
   const hasMyEvents = myEvents.length > 0;
   const hasGoingTo  = goingTo.length  > 0;
@@ -78,23 +97,24 @@ export default function ProfilePage({
               <h1 className="pf-name">{nameLocal}</h1>
               <div className="pf-handle">@{usernameLocal}</div>
 
-              <div className="pf-row">
-                <div className="pf-friends"><strong>{friends}</strong> Friends</div>
-                <button type="button" className="pf-btn" onClick={openEdit}>
-                  Edit Profile
-                </button>
-              </div>
 
               {/*Location Display */}
                {locLocal && (
                  <div className="pf-sub pf-location pf-location-after">
-                  <span>{locLocal}</span>
                   <span className="material-symbols-outlined" aria-hidden="true">location_on</span>
+                  <span>{locLocal}</span>
                 </div>
               )}
+              <div className="pf-row">
+                <span className="pf-friends material-symbols-outlined">group</span>
+                <div className="pf-friends"><strong>{followerCount}</strong> Friends</div>
+              </div>
               {study    && <div className="pf-sub">{study}</div>}
               {bioLocal && <div className="pf-sub pf-bio">{bioLocal}</div>}
             </div>
+            <button type="button" className="pf-btn" onClick={openEdit}>
+              Edit Profile
+            </button>
           </div>
 
           <div className="pf-card pf-interests">
@@ -107,6 +127,10 @@ export default function ProfilePage({
               <div className="pf-empty">Interests from your profile.</div>
             )}
           </div>
+          <button className="org-logout-btn" type="button" onClick={handleLogout}>
+              Logout
+          </button>
+
         </section>
 
         {/* RIGHT */}
