@@ -1,9 +1,9 @@
 @import "Style.css";
 /* ===== Org Dashboard — compact & profile-colored ===== */
 .org-page{
-  color:var(--text);
-  background:var(--page);
-  /* Reserve space for the fixed left nav so the dashboard fills to the right */
+  color: var(--color-text-dark);
+  background: var(--color-tertiary);
+
   margin-left: var(--nav-left-width, 160px); /* uses nav variable, fallback to 160px */
   width: calc(100% - var(--nav-left-width, 160px));
   box-sizing: border-box;
@@ -11,15 +11,38 @@
 }
 
 /* Banner */
-.org-hero{position:relative;width:100%;height:160px;border-bottom:1px solid var(--stroke);background:#f8fafc;overflow:visible;}
+.org-hero {
+  position: relative;
+  margin-top: -23px;
+
+
+  width: calc(100% + var(--nav-left-width, 160px));
+  margin-left: calc(-1 * var(--nav-left-width, 160px));
+
+  height: 145px;
+  border-bottom: 1px solid var(--stroke);
+  background: var(--color-tertiary);
+  overflow: visible;
+}
 .org-banner{width:100%;height:100%;object-fit:cover;display:block;}
 
 /* Avatar  */
-.org-avatar{
-  position:absolute;z-index:3;left:120px;bottom:-60px;
-  width:160px;height:160px;border-radius:50%;object-fit:cover;
-  background:#fff;border:6px solid #fff;box-shadow:0 8px 20px rgba(0,0,0,.06);
+.org-avatar {
+  position: absolute;
+  z-index: 3;
+
+  left: calc(var(--nav-left-width, 160px) + 120px);
+  bottom: -60px;
+
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  border: 6px solid #fff;
+  box-shadow: 0 8px 20px rgba(0,0,0,.06);
 }
+
 /* Initials  */
 .org-avatar-initials{display:grid;place-items:center;background:#e5e7eb;color:#9ca3af;user-select:none;}
 .org-avatar-initials span{font-weight:700;font-size:1.25rem;letter-spacing:.5px;}
@@ -257,9 +280,7 @@
 /* ===========================
    Analytics Card (mock)
    =========================== */
-.org-analytics {
-  margin-top: 24px;
-}
+
 
 .org-analytics-header {
   display: flex;

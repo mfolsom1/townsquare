@@ -19,7 +19,7 @@ const FALLBACK_ORG = {
   location: "Gainesville, FL",
   email: "email@example.com",
   followers: 10,
-  bannerUrl: "https://www.google.com/url?sa=i&url=https%3A%2F%2Fdesignbundles.net%2Fladadikart%2F2893326-umbrellas-in-hands-banner-rainy-day-storm-and-hand&psig=AOvVaw07DHeE7a-r6GSWYf3Mo78O&ust=1763036993943946000&source=images&cd=vfe&opi=89978449&ved=0CBYQjRxqFwoTCNDxv-XO7JADFQAAAAAdAAAAABAE=format&fit=crop",
+  bannerUrl: "https://img.freepik.com/premium-vector/grey-gradient-abstract-background-gray-background_322958-2628.jpg",
   avatarUrl: null,
   about: "Welcome to Umbrella Corporations.",
   tags: ["Arts", "Music", "Tech", "Food & Drink"],
