@@ -15,7 +15,7 @@
   border: 1px solid var(--color-secondary);
   border-radius: 16px;
   padding: 28px;
-  box-shadow:-25px 25px 10px rgba(0,0,0,0.3);
+  box-shadow: 25px 25px 10px rgba(0,0,0,0.3);
   border:2px solid var(--color-accent); 
   text-align: center;
 }
