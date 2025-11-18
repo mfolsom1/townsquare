@@ -17,6 +17,8 @@ import Profile from "./pages/Profile";
 import SavedEventsPage from "./pages/SavedEventsPage";
 import Following from "./pages/Following"
 import OrgDashboardContainer from "./pages/OrgDashboardContainer";
+import ApiTest from "./pages/apiTest";
+import Interests from "./pages/Interests";
 
 function App() {
   return (
@@ -42,6 +44,8 @@ function App() {
                         <Route path="/events/:eventId" element={<EventDetail />} />
                         <Route path="/following" element={<Following />} />
                         <Route path="/saved" element={<SavedEventsPage />} />
+                        <Route path="/apitest" element={<ApiTest />} />
+                        <Route path="/interests" element={<Interests />} />
                         {/* TEMPORARY LINK TO ORG-DASH */}
                         <Route
                           path="/dashboard"

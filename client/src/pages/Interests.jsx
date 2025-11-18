@@ -5,17 +5,21 @@ import { useAuth } from "../auth/AuthContext";
 import { getUserInterests, setUserInterests } from "../api";
 
 const interestsList = [
-  { id: "education", label: "Education", icon: "/images/education.png" },
+  { id: "art", label: "Art", icon: "/images/arts.png" },
+  { id: "fitness", label: "Fitness", icon: "/images/outdoors.png" },
+  { id: "food & dining", label: "Food & Dining", icon: "/images/food.png" },
+  { id: "gaming", label: "Gaming", icon: "/images/fun.png" },
   { id: "music", label: "Music", icon: "/images/music.png" },
+  { id: "networking", label: "Networking", icon: "/images/career.png" },
+  { id: "outdoor activities", label: "Outdoor Activities", icon: "/images/community.png" },
+  { id: "reading", label: "Reading", icon: "/images/education.png" },
   { id: "sports", label: "Sports", icon: "/images/sports.png" },
-  { id: "food", label: "Food", icon: "/images/food.png" },
-  { id: "community", label: "Community", icon: "/images/community.png" },
-  { id: "tech", label: "Tech", icon: "/images/tech.png" },
-  { id: "entertainment", label: "Fun", icon: "/images/fun.png" },
-  { id: "outdoors", label: "Outdoors", icon: "/images/outdoors.png" },
-  { id: "arts", label: "Arts", icon: "/images/arts.png" },
-  { id: "career", label: "Career", icon: "/images/career.png" },
+  { id: "technology", label: "Technology", icon: "/images/tech.png" },
 ];
+
+function normalize(str) {
+  return String(str).trim().toLowerCase();
+}
 
 export default function Interests() {
   const [selected, setSelected] = useState([]);
@@ -34,12 +38,25 @@ export default function Interests() {
       }
       try {
         const idToken = await user.getIdToken();
-        const res = await getUserInterests(idToken);
-        // api returns object { success: true, interests: [...] }
-        const interests = res?.interests || [];
-        if (!mounted) return;
-        // Normalize: our local ids use lowercase keys; backend likely stores names
-        setSelected(interests.map((i) => String(i).toLowerCase()));
+        const currentInterests = await getUserInterests(idToken);
+        
+        console.log("Current Interests:", currentInterests);
+        const interests = currentInterests?.interests || [];
+
+        const mappedIds = interests
+        .map((interest) => {
+          // Normalize backend interest
+          const normalizedInterest = normalize(interest);
+
+          // Find a matching local label
+          const match = interestsList.find(
+            (i) => normalize(i.label) === normalizedInterest
+          );
+          return match ? match.id : null;
+        })
+        .filter(Boolean);
+
+        if (mounted) setSelected(mappedIds);
       } catch (err) {
         console.error("Failed to load user interests", err);
         if (mounted) setError(err.message || "Failed to load interests");
@@ -98,9 +115,8 @@ export default function Interests() {
             <div key={i.id} className="interest-item">
               <button
                 type="button"
-                className={`interest-circle ${
-                  selected.includes(i.id) ? "selected" : ""
-                }`}
+                data-interest={i.id}
+                className={`interest-circle ${selected.includes(i.id) ? "selected" : ""}`}
                 onClick={() => toggleInterest(i.id)}
               >
                 <img src={i.icon} alt={i.label} className="interest-icon" />

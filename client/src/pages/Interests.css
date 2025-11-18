@@ -1,3 +1,5 @@
+@import "Style.css";
+
 .interests-wrap {
   display: flex;
   min-height: 100vh;
@@ -9,12 +11,12 @@
 .interests-card {
   width: 100%;
   max-width: 480px;
-  background: #fff;
-  border: 1px solid #eee;
+  background: var(--color-primary);
+  border: 1px solid var(--color-secondary);
   border-radius: 16px;
   padding: 28px;
   box-shadow:-25px 25px 10px rgba(0,0,0,0.3);
-  border:2px solid var(--accent-color); 
+  border:2px solid var(--color-accent); 
   text-align: center;
 }
 
@@ -51,8 +53,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f7f7f7;
-  border: 2px solid var(--accent-color);
+  background-color: var(--color-tertiary);
+  border: 2px solid var(--color-accent);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -62,7 +64,7 @@
 }
 
 .interest-circle.selected {
-  background-color: var(--button-color-selected);
+  background-color: var(--color-accent);
   color: white;
   border-color: #111;
 }
