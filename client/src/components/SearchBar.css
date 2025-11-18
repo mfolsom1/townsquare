@@ -1,10 +1,27 @@
-@import "../pages/Style.css";
+/* src/components/SearchBar.css */
 
-input {
-  width: 40rem;
-  border-radius: 360px;
-  border-width: 2px;
-  border-color: var(--color-accent-2);
-  font-size: 16px;
-  padding: 6px 12px;
+/* form is rendered inside .ts-search */
+.ts-search form {
+  width: 100%;
+}
+
+.ts-search input[type="search"] {
+  width: 100%;
+  border-radius: 999px;
+  border: 1px solid #d4d4d8;           /* soft gray */
+  background: #f9fafb;
+  font-size: 13px;
+  padding: 6px 14px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.ts-search input[type="search"]::placeholder {
+  color: #a1a1aa;
+}
+
+.ts-search input[type="search"]:focus {
+  border-color: var(--brand);
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(110, 119, 255, 0.15);
 }

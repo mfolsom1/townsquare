@@ -7,7 +7,7 @@ export default function SearchBar() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // initialize input from the current URL so back/forward keeps state
+  // Sync input with URL so back/forward keep the search value
   useEffect(() => {
     setQuery(searchParams.get('q') || '');
   }, [searchParams]);
@@ -15,6 +15,7 @@ export default function SearchBar() {
   const handleSubmit = (e) => {
     e.preventDefault();
     const q = query.trim();
+
     if (q) {
       navigate(`/discover?q=${encodeURIComponent(q)}`);
     } else {
@@ -23,9 +24,10 @@ export default function SearchBar() {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="ts-search-form">
       <input
         type="search"
+        className="ts-search-input"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search..."

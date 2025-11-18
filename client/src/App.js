@@ -3,7 +3,6 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import NavBar from "./components/NavBar";
-import NavBarLeft from "./components/NavBarLeft";
 import Discover from "./pages/Discover";
 import EventDetail from "./pages/EventDetail";
 
@@ -34,7 +33,7 @@ function App() {
                   <NavBar />
 
                   <div style={{ display: "flex" }}>
-                    <NavBarLeft />
+
 
                     <div style={{ flex: 1, padding: "20px" }}>
                       <Routes>

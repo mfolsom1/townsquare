@@ -9,32 +9,40 @@ html, body {
 /* Theme colors */
 :root {
 
+  /* Brand palette */
+  --brand: #6E77FF;
+  --brand-600: #5b63e6;
+  --brand-700: #4b53d1;
+
   /* Default Page Colors */
   --color-primary: #ffffff;
-  --color-secondary: #ccc;
+  --color-secondary: #e2e8f0;
   --color-tertiary: #f2f4f7;
   --color-dark: #111;
-  --color-accent: #8851bc;
-  --color-accent-dark: #703aa2;
-  --color-accent-2: #7C3AED;
-  --color-accent-3: #8B5CF6;
-  --color-accent-3-dark: #6e45ce;
+
+    /* Tie old accent vars to brand for consistency */
+  --color-accent: var(--brand);
+  --color-accent-dark: var(--brand-700);
+  --color-accent-2: var(--brand-600);
+  --color-accent-3: var(--brand-600);
+  --color-accent-3-dark: var(--brand-700);
+
 
   --color-navbar-bg: var(--color-primary);
   --color-discover-bg: var(--color-tertiary);
 
   /* Text Colors */
-  --color-text-dark: #111;
+  --color-text-dark: #0f172a;
   --color-text-light: #ffffff;
   --color-text-accent: #515151;
   --color-text-accent-2: #8f8f8f;
 
   /* Default Button Colors */
-  --button-bg-color: var(--color-accent-3);
-  --button-bg-color-dark: var(--color-accent-3-dark);
+  --button-bg-color: var(--brand-600);
+  --button-bg-color-dark: var(--brand-700);
   --button-text-color: #fff;
-  --button-disabled-bg: #ccc;
-  --button-disabled-color: #666;
+  --button-disabled-bg: #e5e7eb;
+  --button-disabled-color: #9ca3af;
 
   /* Misc Colors */
   --color-error: #a20000;
