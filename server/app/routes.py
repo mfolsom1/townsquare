@@ -839,17 +839,17 @@ def register_routes(app):
         return jsonify({"error": "Not found"}), 404
 
     # ===== Friend Event Routes =====
-    @app.route('/api/friends/events', methods=['GET'])
+    @app.route('/api/friends/rsvps', methods=['GET'])
     @require_auth
-    def get_friend_events(firebase_uid):
+    def get_friend_rsvps(firebase_uid):
         try:
-            events = Event.get_friend_events(firebase_uid)
+            events = Event.get_friend_rsvps(firebase_uid)
             return jsonify({
                 "success": True,
                 "events": [event.to_dict() for event in events]
             })
         except Exception as e:
-            return jsonify({"error": f"Failed to get friend events: {str(e)}"}), 500
+            return jsonify({"error": f"Failed to get friend rsvps: {str(e)}"}), 500
 
     @app.route('/api/friends/created', methods=['GET'])
     @require_auth

@@ -896,19 +896,19 @@ class Event:
             conn.close()
 
     @staticmethod
-    def get_friend_events(firebase_uid):
-        # Events created/organized by people the user is following (based on SocialConnections table)
+    def get_friend_rsvps(firebase_uid):
+        # Events RSVP'd to by people the user is following (based on SocialConnections table)
         conn = DatabaseConnection.get_connection()
         cursor = conn.cursor()
         try:
             cursor.execute(
                 """
-                SELECT e.EventID, e.OrganizerUID, e.Title, e.Description, e.StartTime, e.EndTime, e.Location, 
-                       e.CategoryID, e.MaxAttendees, e.ImageURL, e.CreatedAt, e.UpdatedAt, e.IsArchived, e.ArchivedAt
+                SELECT DISTINCT e.*
                 FROM Events e
-                JOIN SocialConnections s ON s.FollowingUID = e.OrganizerUID
-                WHERE s.FollowerUID = ? AND e.IsArchived = 0
-                ORDER BY e.StartTime ASC
+                JOIN RSVPs r ON e.EventID = r.EventID
+                JOIN SocialConnections s ON s.FollowingUID = r.UserUID
+                WHERE s.FollowerUID = ?
+                  AND r.Status IN ('Going', 'Interested')
                 """,
                 (firebase_uid,)
             )
@@ -928,8 +928,6 @@ class Event:
                         image_url=row[9],
                         created_at=row[10],
                         updated_at=row[11],
-                        is_archived=bool(row[12]),
-                        archived_at=row[13]
                     )
                     for row in rows
                 ]
@@ -941,14 +939,49 @@ class Event:
 
     @staticmethod
     def get_friend_created_events(firebase_uid):
-        # This method is now redundant with get_friend_events since both return events created by followed users
-        # Keeping for backward compatibility but delegating to get_friend_events
+        # Events created/organized by people the user is following
+        conn = DatabaseConnection.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT e.*
+                FROM Events e
+                JOIN SocialConnections s ON s.FollowingUID = e.OrganizerUID
+                WHERE s.FollowerUID = ?
+                """,
+                (firebase_uid,)
+            )
+            rows = cursor.fetchall()
+            if rows:
+                return [
+                    Event(
+                        event_id=row[0],
+                        organizer_uid=row[1],
+                        title=row[2],
+                        description=row[3],
+                        start_time=row[4],
+                        end_time=row[5],
+                        location=row[6],
+                        category_id=row[7],
+                        max_attendees=row[8],
+                        image_url=row[9],
+                        created_at=row[10],
+                        updated_at=row[11],
+                    )
+                    for row in rows
+                ]
+            return []
+        except Exception as e:
+            raise e
+        finally:
+            conn.close()
         return Event.get_friend_events(firebase_uid)
 
     @staticmethod
     def get_friend_feed(firebase_uid):
         # Combine events friends are attending/interested in and events they created
-        attending = Event.get_friend_events(firebase_uid)
+        attending = Event.get_friend_rsvps(firebase_uid)
         created = Event.get_friend_created_events(firebase_uid)
         combined = attending + [e for e in created if e not in attending]
         combined.sort(key=lambda e: e.start_time)
