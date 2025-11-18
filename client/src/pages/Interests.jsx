@@ -86,12 +86,14 @@ export default function Interests() {
       setLoading(true);
       const idToken = await user.getIdToken();
       // Convert selected ids back to interest names expected by backend
-      // Here we assume backend expects capitalized/simple names; use labels from interestsList
+
       const selectedNames = interestsList
         .filter((i) => selected.includes(i.id))
         .map((i) => i.label);
 
-      await setUserInterests(idToken, selectedNames);
+      const afterSet = await setUserInterests(idToken, selectedNames);
+      console.log("After Setting All Interests:", afterSet);
+    
       nav("/discover");
     } catch (err) {
       console.error("Failed to save interests", err);

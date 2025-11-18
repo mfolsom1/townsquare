@@ -60,11 +60,11 @@
 }
 
 .interest-circle:hover {
-  background-color: #eee;
+  background-color: var(--color-secondary);
 }
 
 .interest-circle.selected {
-  background-color: var(--color-accent);
+  background-color: var(--color-dark-accent);
   color: white;
   border-color: #111;
 }
