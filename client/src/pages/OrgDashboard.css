@@ -58,8 +58,13 @@
 .org-change-avatar{left:calc(120px + 160px - 18px);bottom:-12px;width:36px;height:36px;display:grid;place-items:center;border-radius:999px;font-size:.9rem;}
 
 /* Layout */
-.org-content{display:grid;grid-template-columns:320px 1fr;gap:28px;padding:72px 40px 40px;} /* top pad for avatar overlap */
+.org-content {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 28px;
 
+   padding: 72px 150px 40px 40px; 
+}
 /* Card base — used in sidebar AND right column */
 .org-card {
   background: var(--page);
@@ -160,6 +165,7 @@
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 1000px;
 }
 
 .org-event {
