@@ -62,17 +62,33 @@
     align-items: center;
   }
   .ts-btn {
-    background: #e5e5e5;
-    font-size: 13px;
-    color: var(--color-text-dark);
+    /* background: var(--color-accent);
+    font-size: 12px;
+    color: #fff;
+    font-weight: 600;
     text-decoration: none;
+    border-radius: 360px;
+    cursor: pointer;
     border: none;
     outline: none;
     height: 30px;
+    padding: 10px 14px;
+    text-align: center; */
+    background: var(--color-accent);
+    color: #fff;
+    border: none;
+    border-radius: 360px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 10px;
+    width: auto;            /* fixed horizontal width */
+    text-align: center;
   }
+
   .ts-btn:hover {
     opacity: 1;
-    background: var(--color-secondary);
+    background: var(--color-accent-dark);
   }
   
   .ts-icon-btn {

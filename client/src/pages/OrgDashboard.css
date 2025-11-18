@@ -61,8 +61,8 @@
 .org-edit-btn,.org-logout-btn{
   width:100%;margin-top:16px;padding:10px 14px;border-radius:999px;font-weight:600;cursor:pointer;border:1px solid var(--stroke);
 }
-.org-edit-btn{background:#f3f4ff;color:var(--brand);}
-.org-edit-btn:hover{background:#e9ebff;}
+.org-edit-btn{background:#fbf3ff;color:var(--color-accent);}
+.org-edit-btn:hover{background:#f4e9ff;}
 .org-logout-btn{background:#fff;color:#ef4444;border-color:#f3d2d2;}
 .org-logout-btn:hover{background:#fff5f5;}
 
@@ -89,7 +89,7 @@
 }
 /* Logout button */
 .org-logout-btn {
-  background: var(--brand);
+  background: var(--color-accent);
   color: #fff;
   border: none;
   /* border-radius: 12px; */
@@ -102,7 +102,7 @@
 }
 
 .org-logout-btn:hover {
-  background: var(--brand-600);
+  background: var(--color-accent-dark);
 }
 
 .org-logout-btn:active {
@@ -210,7 +210,7 @@
 }
 
 .org-events-cta {
-  background: var(--brand);
+  background: var(--color-accent);
   color: #fff;
   border: none;
   border-radius: 360px;
@@ -224,7 +224,7 @@
 }
 
 .org-events-cta:hover {
-  background: var(--brand-600);
+  background: var(--color-accent-dark);
 }
 
 .org-events-cta:active {
@@ -245,7 +245,7 @@
 .org-main {
   display: flex;
   flex-direction: column;
-  gap: 22px;   /* space between “My Events” and any future cards */
+  /* gap: px;   space between “My Events” and any future cards */
 }
 
 .org-events-footer {
@@ -257,9 +257,9 @@
 /* ===========================
    Analytics Card (mock)
    =========================== */
-.org-analytics {
+/* .org-analytics {
   margin-top: 24px;
-}
+} */
 
 .org-analytics-header {
   display: flex;
@@ -298,7 +298,7 @@
 }
 
 .org-analytics-tab--active {
-  background: var(--brand);
+  background: var(--color-accent);
   color: #fff;
 }
 
@@ -319,7 +319,7 @@
 }
 .org-analytics-bar {
   width: 100%;
-  background: var(--brand);
+  background: var(--color-accent);
   border-radius: 4px 4px 0 0;
   transition: height 160ms ease;
 }
