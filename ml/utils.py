@@ -201,20 +201,15 @@ class DatabaseConnector:
 
                 query = """
                 SELECT
-                    e.EventID,
-                    e.Title,
-                    e.Description,
-                    e.StartTime,
-                    e.EndTime,
-                    e.Location,
-                    c.Name as CategoryName,
+                    e.EventID, e.Title, e.Description, e.StartTime, e.EndTime,
+                    e.Location, e.ImageURL, c.Name as CategoryName,
                     STRING_AGG(t.Name, ', ') as Tags
                 FROM Events e
                 LEFT JOIN EventCategories c ON e.CategoryID = c.CategoryID
                 LEFT JOIN EventTagAssignments eta ON e.EventID = eta.EventID
                 LEFT JOIN EventTags t ON eta.TagID = t.TagID
-                WHERE e.StartTime > GETDATE()  -- Only future events
-                GROUP BY e.EventID, e.Title, e.Description, e.StartTime, e.EndTime, e.Location, c.Name
+                WHERE e.StartTime > GETDATE()
+                GROUP BY e.EventID, e.Title, e.Description, e.StartTime, e.EndTime, e.Location, e.ImageURL, c.Name
                 ORDER BY e.StartTime
                 """
                 if limit:
@@ -440,6 +435,14 @@ class DatabaseConnector:
                             u.FirstName,
                             u.LastName,
                             sc.CreatedAt as FollowedAt,
+                            CASE 
+                                WHEN EXISTS (
+                                    SELECT 1 FROM SocialConnections sc2 
+                                    WHERE sc2.FollowerUID = u.FirebaseUID 
+                                    AND sc2.FollowingUID = ?
+                                ) THEN 1 
+                                ELSE 0 
+                            END as IsMutual,
                             (
                                 SELECT COUNT(*)
                                 FROM RSVPs r
@@ -454,6 +457,7 @@ class DatabaseConnector:
                         WHERE sc.FollowerUID = ?
                         ORDER BY sc.CreatedAt DESC
                     """
+                    cursor.execute(query, (limit, user_uid, user_uid))
                 else:
                     # Fallback to simple query
                     query = """
@@ -461,14 +465,22 @@ class DatabaseConnector:
                             u.FirebaseUID,
                             u.Username,
                             u.FirstName,
-                            u.LastName
+                            u.LastName,
+                            CASE 
+                                WHEN EXISTS (
+                                    SELECT 1 FROM SocialConnections sc2 
+                                    WHERE sc2.FollowerUID = u.FirebaseUID 
+                                    AND sc2.FollowingUID = ?
+                                ) THEN 1 
+                                ELSE 0 
+                            END as IsMutual
                         FROM SocialConnections sc
                         JOIN Users u ON sc.FollowingUID = u.FirebaseUID
                         WHERE sc.FollowerUID = ?
                         ORDER BY sc.CreatedAt DESC
                     """
+                    cursor.execute(query, (limit, user_uid, user_uid))
 
-                cursor.execute(query, (limit, user_uid))
                 columns = [column[0] for column in cursor.description]
                 friends = [dict(zip(columns, row))
                            for row in cursor.fetchall()]
@@ -505,7 +517,23 @@ class DatabaseConnector:
                                 WHEN r.Status = 'Interested' THEN 1.0
                                 ELSE 0.0
                             END as BaseScore,
-                            COUNT(r.UserUID) OVER (PARTITION BY e.EventID) as FriendCount
+                            COUNT(r.UserUID) OVER (PARTITION BY e.EventID) as FriendCount,
+                            SUM(CASE 
+                                WHEN EXISTS (
+                                    SELECT 1 FROM SocialConnections sc2 
+                                    WHERE sc2.FollowerUID = r.UserUID 
+                                    AND sc2.FollowingUID = ?
+                                ) THEN 1 
+                                ELSE 0 
+                            END) OVER (PARTITION BY e.EventID) as MutualFriendCount,
+                            CASE 
+                                WHEN EXISTS (
+                                    SELECT 1 FROM SocialConnections sc2 
+                                    WHERE sc2.FollowerUID = r.UserUID 
+                                    AND sc2.FollowingUID = ?
+                                ) THEN 1 
+                                ELSE 0 
+                            END as IsMutual
                         FROM RSVPs r
                         JOIN SocialConnections sc ON r.UserUID = sc.FollowingUID
                         JOIN Users u ON r.UserUID = u.FirebaseUID
@@ -522,6 +550,8 @@ class DatabaseConnector:
                         )
                         ORDER BY FriendCount DESC, BaseScore DESC, e.StartTime ASC
                     """
+                    cursor.execute(
+                        query, (user_uid, user_uid, user_uid, user_uid))
                 else:
                     # Fallback to simple query
                     query = """
@@ -550,11 +580,24 @@ class DatabaseConnector:
                         )
                         ORDER BY r.CreatedAt DESC
                     """
+                    cursor.execute(query, (user_uid, user_uid))
 
-                cursor.execute(query, (user_uid, user_uid))
                 columns = [column[0] for column in cursor.description]
-                recommendations = [dict(zip(columns, row))
-                                   for row in cursor.fetchall()]
+                recommendations = []
+
+                for row in cursor.fetchall():
+                    rec = dict(zip(columns, row))
+                    # Convert Decimal types to float for scoring
+                    if 'BaseScore' in rec and rec['BaseScore'] is not None:
+                        rec['BaseScore'] = float(rec['BaseScore'])
+                    if 'FriendCount' in rec and rec['FriendCount'] is not None:
+                        rec['FriendCount'] = int(rec['FriendCount'])
+                    if 'MutualFriendCount' in rec and rec['MutualFriendCount'] is not None:
+                        rec['MutualFriendCount'] = int(
+                            rec['MutualFriendCount'])
+                    if 'IsMutual' in rec and rec['IsMutual'] is not None:
+                        rec['IsMutual'] = bool(rec['IsMutual'])
+                    recommendations.append(rec)
 
                 logger.info(
                     f"Fetched {len(recommendations)} friend recommendations for user {user_uid}")

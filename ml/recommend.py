@@ -194,6 +194,11 @@ class RecommendationEngine:
                          recommendation_strategy: str = "hybrid") -> List[Dict[str, Any]]:
         """Unified recommendation function with strategy options"""
 
+        # Clear event cache to ensure fresh data on every recommendation request
+        if hasattr(self, '_event_cache'):
+            del self._event_cache
+            logger.info("Cleared event cache for fresh recommendations")
+
         if not self.are_vectors_loaded():
             logger.warning("Vectors not loaded, using fallback")
             return self.get_fallback_recommendations(top_k, filters)
@@ -248,13 +253,20 @@ class RecommendationEngine:
             if filters:
                 recommendations = self.apply_filters(recommendations, filters)
 
-            # Sort and return
-            recommendations.sort(
-                key=lambda x: x['similarity_score'], reverse=True)
-            final_recommendations = recommendations[:top_k]
+            # Remove duplicates based on event_id (keep highest scoring one)
+            seen_event_ids = set()
+            unique_recommendations = []
+            for rec in sorted(recommendations, key=lambda x: x['similarity_score'], reverse=True):
+                event_id = rec.get('event_id')
+                if event_id and event_id not in seen_event_ids:
+                    seen_event_ids.add(event_id)
+                    unique_recommendations.append(rec)
+
+            # Return top_k unique recommendations
+            final_recommendations = unique_recommendations[:top_k]
 
             logger.info(
-                f"Generated {len(final_recommendations)} recommendations (requested top_k={top_k}) for user {user_uid}")
+                f"Generated {len(final_recommendations)} unique recommendations (requested top_k={top_k}) for user {user_uid}")
             return final_recommendations
 
         except Exception as e:
@@ -333,30 +345,35 @@ class RecommendationEngine:
 
     def apply_friend_boosts(self, user_uid: str, recommendations: List[Dict[str, Any]],
                             strategy: str = "hybrid") -> List[Dict[str, Any]]:
-        """Enhanced friend boosts with configurable strategy"""
 
         friend_events = self.db_connector.fetch_friend_recommendations(
             user_uid, include_scoring=True
         )
 
         if not friend_events:
+            logger.debug(f"No friend events found for user {user_uid}")
             return recommendations
 
         rec_map = {rec['event_id']: rec for rec in recommendations}
 
         for friend_event in friend_events:
             event_id = friend_event['EventID']
+            mutual_friend_count = friend_event.get('MutualFriendCount', 0)
+            total_friend_count = int(friend_event.get('FriendCount', 1))
+            is_mutual = friend_event.get('IsMutual', False)
 
-            # Calculate boost based on strategy
+            # Calculate boost based on strategy and mutual friendship
             if strategy == "friends_boosted":
                 boost_multiplier = 1.5
             else:  # hybrid
                 boost_multiplier = 1.2
 
-            base_score = friend_event.get('BaseScore', 1.0)
-            friend_count = friend_event.get('FriendCount', 1)
-            friend_boost = base_score * \
-                boost_multiplier * (1 + 0.1 * friend_count)
+            # Apply additional boost for mutual friendships (1.3x for mutual, 1.0x for one-way)
+            mutual_multiplier = 1.3 if is_mutual or mutual_friend_count > 0 else 1.0
+
+            base_score = float(friend_event.get('BaseScore', 1.0))
+            friend_boost = base_score * boost_multiplier * \
+                mutual_multiplier * (1 + 0.1 * total_friend_count)
 
             if event_id in rec_map:
                 # Compute final score from stored base_similarity
@@ -367,11 +384,14 @@ class RecommendationEngine:
                 except Exception:
                     final_score = rec_map[event_id].get(
                         'similarity_score', 0.0)
+
                 rec_map[event_id]['similarity_score'] = final_score
                 rec_map[event_id]['base_similarity'] = base
                 rec_map[event_id]['friend_boost'] = friend_boost
                 rec_map[event_id]['friend_username'] = friend_event['FriendUsername']
                 rec_map[event_id]['friend_status'] = friend_event['FriendStatus']
+                rec_map[event_id]['is_mutual_friend'] = is_mutual or mutual_friend_count > 0
+                rec_map[event_id]['mutual_friend_count'] = mutual_friend_count
             else:
                 event_details = self.get_event_details(event_id)
                 if event_details:
@@ -384,6 +404,8 @@ class RecommendationEngine:
                         'friend_boost': friend_boost,
                         'friend_username': friend_event['FriendUsername'],
                         'friend_status': friend_event['FriendStatus'],
+                        'is_mutual_friend': is_mutual or mutual_friend_count > 0,
+                        'mutual_friend_count': mutual_friend_count,
                         'source': 'friend_based'
                     })
 

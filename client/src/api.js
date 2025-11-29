@@ -37,7 +37,7 @@ async function apiRequest(url, options = {}, idToken = null) {
         // Throw an error with the message from the backend, or a default message
         throw new Error(data.error || `Request failed with status ${response.status}`);
     }
-    
+
     return data;
 }
 
@@ -162,7 +162,7 @@ export async function getEvents(filters = {}, options = {}) {
         if (v == null) return;
         if (Array.isArray(v)) {
             v.forEach(item => params.append(k, item));
-        } 
+        }
         else {
             params.append(k, String(v));
         }
@@ -312,10 +312,103 @@ export async function getFriendFeed(idToken) {
 //===============================
 
 /**
- * Fetches event recommendations for a specific user.
- * @param {number} userId - The ID of the user for whom to get recommendations.
- * @returns {Promise<Array<object>>} A list of recommended events.
+ * Fetches personalized event recommendations for the authenticated user.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @param {number} topK - Number of recommendations to fetch (default 10, max 50).
+ * @param {string} strategy - Recommendation strategy ('hybrid', 'friends_only', 'friends_boosted').
+ * @returns {Promise<object>} Object containing recommendations array and metadata.
  */
-export async function getRecommendations(userId) {
-    return apiRequest(`/recommendations/${userId}`, { method: "GET" });
+export async function getRecommendations(idToken, topK = 10, strategy = 'hybrid') {
+    const params = new URLSearchParams();
+    params.append('top_k', topK);
+    params.append('strategy', strategy);
+
+    return apiRequest(`/api/recommendations?${params.toString()}`, {
+        method: "GET"
+    }, idToken);
+}
+
+//===============================
+// ===== Social Functions =====
+//===============================
+
+/**
+ * Follow a user by their Firebase UID or username.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @param {string} targetUid - The Firebase UID of the user to follow.
+ * @param {string} targetUsername - The username of the user to follow (alternative to targetUid).
+ * @returns {Promise<object>} Success confirmation.
+ */
+export async function followUser(idToken, targetUid = null, targetUsername = null) {
+    const body = {};
+    if (targetUid) body.firebase_uid = targetUid;
+    if (targetUsername) body.username = targetUsername;
+
+    return apiRequest("/api/social/follow", {
+        method: "POST",
+        body: JSON.stringify(body),
+    }, idToken);
+}
+
+/**
+ * Unfollow a user by their Firebase UID or username.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @param {string} targetUid - The Firebase UID of the user to unfollow.
+ * @param {string} targetUsername - The username of the user to unfollow (alternative to targetUid).
+ * @returns {Promise<object>} Success confirmation.
+ */
+export async function unfollowUser(idToken, targetUid = null, targetUsername = null) {
+    const body = {};
+    if (targetUid) body.firebase_uid = targetUid;
+    if (targetUsername) body.username = targetUsername;
+
+    return apiRequest("/api/social/unfollow", {
+        method: "POST",
+        body: JSON.stringify(body),
+    }, idToken);
+}
+
+/**
+ * Check if the current user is following another user.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @param {string} targetUid - The Firebase UID of the target user.
+ * @returns {Promise<object>} Object containing is_following boolean.
+ */
+export async function checkFollowingStatus(idToken, targetUid) {
+    return apiRequest(`/api/social/following/${targetUid}`, {
+        method: "GET"
+    }, idToken);
+}
+
+/**
+ * Get the list of users the current user is following.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @returns {Promise<object>} Object containing following list and count.
+ */
+export async function getFollowing(idToken) {
+    return apiRequest("/api/social/following", {
+        method: "GET"
+    }, idToken);
+}
+
+/**
+ * Get the list of users following the current user.
+ * @param {string} idToken - The user's Firebase ID token for authentication.
+ * @returns {Promise<object>} Object containing followers list and count.
+ */
+export async function getFollowers(idToken) {
+    return apiRequest("/api/social/followers", {
+        method: "GET"
+    }, idToken);
+}
+
+/**
+ * Get public user information by Firebase UID.
+ * @param {string} firebaseUid - The Firebase UID of the user.
+ * @returns {Promise<object>} Object containing public user information.
+ */
+export async function getUserPublicInfo(firebaseUid) {
+    return apiRequest(`/api/user/${firebaseUid}/public`, {
+        method: "GET"
+    });
 }
