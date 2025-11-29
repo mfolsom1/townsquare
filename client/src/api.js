@@ -149,12 +149,10 @@ export async function getAllInterests() {
 
 /**
  * Fetches a list of filtered events or all events from the backend.
- * @returns {Promise<Array<object>>} A list of events.
+ * @param {object} filters - Optional filters to apply (e.g., {q: 'search term'}).
+ * @param {object} options - Optional settings (e.g., pagination).
+ * @returns {Promise<object>} Object containing events array and pagination info.
  */
-export async function getAllEvents() {
-    return apiRequest("/events", { method: "GET" });
-}
-
 export async function getEvents(filters = {}, options = {}) {
     const params = new URLSearchParams();
 
@@ -365,19 +363,7 @@ export async function unfollowUser(idToken, targetUid = null, targetUsername = n
     return apiRequest("/api/social/unfollow", {
         method: "POST",
         body: JSON.stringify(body),
-    }, idToken);
-}
-
-/**
- * Check if the current user is following another user.
- * @param {string} idToken - The user's Firebase ID token for authentication.
- * @param {string} targetUid - The Firebase UID of the target user.
- * @returns {Promise<object>} Object containing is_following boolean.
- */
-export async function checkFollowingStatus(idToken, targetUid) {
-    return apiRequest(`/api/social/following/${targetUid}`, {
-        method: "GET"
-    }, idToken);
+    });
 }
 
 /**
@@ -413,46 +399,6 @@ export async function getUserPublicInfo(firebaseUid) {
     });
 }
 
-//===============================
-// ===== Social Functions =====
-//===============================
-
-/**
- * Follow a user by their Firebase UID or username.
- * @param {string} idToken - The user's Firebase ID token for authentication.
- * @param {string} targetUid - The Firebase UID of the user to follow.
- * @param {string} targetUsername - The username of the user to follow (alternative to targetUid).
- * @returns {Promise<object>} Success confirmation.
- */
-export async function followUser(idToken, targetUid = null, targetUsername = null) {
-    const body = {};
-    if (targetUid) body.firebase_uid = targetUid;
-    if (targetUsername) body.username = targetUsername;
-
-    return apiRequest("/api/social/follow", {
-        method: "POST",
-        body: JSON.stringify(body),
-    }, idToken);
-}
-
-/**
- * Unfollow a user by their Firebase UID or username.
- * @param {string} idToken - The user's Firebase ID token for authentication.
- * @param {string} targetUid - The Firebase UID of the user to unfollow.
- * @param {string} targetUsername - The username of the user to unfollow (alternative to targetUid).
- * @returns {Promise<object>} Success confirmation.
- */
-export async function unfollowUser(idToken, targetUid = null, targetUsername = null) {
-    const body = {};
-    if (targetUid) body.firebase_uid = targetUid;
-    if (targetUsername) body.username = targetUsername;
-
-    return apiRequest("/api/social/unfollow", {
-        method: "POST",
-        body: JSON.stringify(body),
-    }, idToken);
-}
-
 /**
  * Check if the current user is following another user.
  * @param {string} idToken - The user's Firebase ID token for authentication.
@@ -464,40 +410,6 @@ export async function checkFollowingStatus(idToken, targetUid) {
         method: "GET"
     }, idToken);
 }
-
-/**
- * Get the list of users the current user is following.
- * @param {string} idToken - The user's Firebase ID token for authentication.
- * @returns {Promise<object>} Object containing following list and count.
- */
-export async function getFollowing(idToken) {
-    return apiRequest("/api/social/following", {
-        method: "GET"
-    }, idToken);
-}
-
-/**
- * Get the list of users following the current user.
- * @param {string} idToken - The user's Firebase ID token for authentication.
- * @returns {Promise<object>} Object containing followers list and count.
- */
-export async function getFollowers(idToken) {
-    return apiRequest("/api/social/followers", {
-        method: "GET"
-    }, idToken);
-}
-
-/**
- * Get public user information by Firebase UID.
- * @param {string} firebaseUid - The Firebase UID of the user.
- * @returns {Promise<object>} Object containing public user information.
- */
-export async function getUserPublicInfo(firebaseUid) {
-    return apiRequest(`/api/user/${firebaseUid}/public`, {
-        method: "GET"
-    });
-}
-
 
 //===============================
 // ===== Organizations =========

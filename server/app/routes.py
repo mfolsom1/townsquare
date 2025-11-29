@@ -21,10 +21,8 @@ except Exception as e:
     ML_AVAILABLE = False
 
 
-
 def register_routes(app):
 
-<<<<<<< HEAD
     def transform_event_for_frontend(event):
         """Transform database field names (PascalCase) to frontend field names (snake_case)"""
         def safe_isoformat(dt):
@@ -53,8 +51,6 @@ def register_routes(app):
             'source': event.get('source')
         }
 
-=======
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
     @app.route('/')
     def home():
         return jsonify({"message": "Welcome to Townsquare API"})
@@ -68,11 +64,8 @@ def register_routes(app):
             id_token = request_data.get('idToken')
             user_data = request_data.get('userData', {})
 
-<<<<<<< HEAD
             print(f"Backend received user_data: {user_data}")  # Debug log
 
-=======
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
             if not id_token:
                 return jsonify({"error": "No ID token provided"}), 400
 
@@ -85,12 +78,9 @@ def register_routes(app):
             existing_user = User.get_user_by_firebase_uid(firebase_uid)
 
             if existing_user:
-<<<<<<< HEAD
                 # Debug log
                 print(f"User already exists: {existing_user.username}")
                 # User exists, return user data
-=======
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
                 return jsonify({
                     "success": True,
                     "user": existing_user.to_dict()
@@ -102,13 +92,10 @@ def register_routes(app):
                 if not username:
                     return jsonify({"error": "Username is required for account creation"}), 400
 
-<<<<<<< HEAD
                 # Debug log
                 print(f"Creating new user with username: {username}")
 
                 # Validate username format
-=======
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
                 username = username.strip()
                 if len(username) < 3 or len(username) > 20:
                     return jsonify({"error": "Username must be between 3 and 20 characters"}), 400
@@ -128,12 +115,9 @@ def register_routes(app):
                     last_name = (decoded_token.get('family_name') or
                                  name_parts[1] if len(name_parts) > 1 and name_parts[1] else None)
 
-<<<<<<< HEAD
-=======
                     user_type = user_data.get('userType', 'individual')
                     organization_name = user_data.get('organizationName')
 
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
                     new_user = User.create_user(
                         firebase_uid=firebase_uid,
                         username=username,
@@ -187,10 +171,7 @@ def register_routes(app):
             allowed_fields = ['username', 'first_name',
                               'last_name', 'location', 'bio', 'interests']
 
-<<<<<<< HEAD
             # Filter and validate data
-=======
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
             filtered_data = {k: v for k, v in update_data.items()
                              if k in allowed_fields and v is not None}
 
@@ -481,8 +462,6 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": f"Failed to get followers list: {str(e)}"}), 500
 
-<<<<<<< HEAD
-=======
     @app.route('/api/user/<firebase_uid>/public', methods=['GET'])
     def get_user_public_info(firebase_uid):
         """Get public user information by Firebase UID"""
@@ -498,13 +477,13 @@ def register_routes(app):
                     "username": user.username,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
-                    "location": user.location
+                    "location": user.location,
+                    "user_type": user.user_type
                 }
             })
         except Exception as e:
             return jsonify({"error": f"Failed to get user info: {str(e)}"}), 500
 
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
     # ===== Event functions ===== #
     @app.route('/events', methods=['GET'])
     def get_events():
@@ -540,18 +519,6 @@ def register_routes(app):
                     "pages": (total + per_page - 1) // per_page if per_page else 0
                 }
             }), 200
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    @app.route('/events', methods=['GET'])
-    def get_all_events():
-        try:
-            events = Event.get_all_events()
-            # Returns a 200 OK with an empty list if no events are found, which is more conventional.
-            return jsonify({
-                "success": True,
-                "events": [event.to_dict() for event in events]
-            })
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -662,7 +629,8 @@ def register_routes(app):
     def create_event(firebase_uid=None, user=None, **kwargs):
         # normalize uid whether decorator passed firebase_uid or a user object
         if not firebase_uid:
-            firebase_uid = getattr(user, 'firebase_uid', None) or getattr(user, 'uid', None)
+            firebase_uid = getattr(user, 'firebase_uid',
+                                   None) or getattr(user, 'uid', None)
         if not firebase_uid:
             return jsonify({"error": "Unauthorized"}), 401
 
@@ -670,11 +638,7 @@ def register_routes(app):
             # Parse JSON data from the request
             data = request.get_json() or {}
 
-<<<<<<< HEAD
             # Validate required fields (CategoryID is now included)
-=======
-            # Validate required fields
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
             required_fields = ['Title', 'StartTime',
                                'EndTime', 'Location', 'CategoryID']
             missing_fields = [
@@ -690,11 +654,7 @@ def register_routes(app):
                 start_time=(data['StartTime']),
                 end_time=(data['EndTime']),
                 location=data['Location'],
-<<<<<<< HEAD
                 category_id=data['CategoryID'],  # Now a required field
-=======
-                category_id=data['CategoryID'],
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
                 max_attendees=data.get('MaxAttendees'),
                 image_url=data.get('ImageURL')
             )
@@ -775,49 +735,6 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-<<<<<<< HEAD
-=======
-    @app.route('/events/<int:event_id>/archive', methods=['POST'])
-    @require_organization
-    def archive_event(firebase_uid, user, event_id):
-        """Archive an event (soft delete)"""
-        try:
-            result = Event.archive_event(event_id, firebase_uid)
-
-            # Event not found or already archived
-            if result is None:
-                return jsonify({"error": "Event not found or already archived"}), 404
-
-            # User not authorized
-            if result is False:
-                return jsonify({"error": "Not authorized to archive this event"}), 403
-
-            return jsonify({
-                "success": True,
-                "message": "Event archived successfully",
-                "archived_event": result.to_dict()
-            }), 200
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    @app.route('/api/user/events/archived', methods=['GET'])
-    @require_organization
-    def get_user_archived_events(firebase_uid, user):
-        """Get all archived events for the current organization user"""
-        try:
-            # Get all events (including archived) then filter
-            events = Event.get_events_by_organizer(
-                firebase_uid, include_archived=True)
-            archived_events = [event for event in events if event.is_archived]
-
-            return jsonify({
-                "success": True,
-                "events": [event.to_dict() for event in archived_events]
-            }), 200
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
     # ===== Recommendation functions =====
 
     # Initialize ML engine (lazy loading)
@@ -864,7 +781,6 @@ def register_routes(app):
                 recommendation_strategy=strategy
             )
 
-<<<<<<< HEAD
             # Transform recommendations to frontend format
             recommendations = result.get('recommendations', [])
             transformed_recommendations = [
@@ -874,12 +790,6 @@ def register_routes(app):
                 "success": True,
                 "recommendations": transformed_recommendations,
                 "count": len(transformed_recommendations),
-=======
-            return jsonify({
-                "success": True,
-                "recommendations": result.get('recommendations', []),
-                "count": result.get('count', 0),
->>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
                 "strategy": result.get('strategy_used', strategy),
                 "user_uid": firebase_uid
             }), 200
@@ -967,7 +877,8 @@ def register_routes(app):
         """
         # normalize firebase uid if decorator provided `user` object
         if not firebase_uid:
-            firebase_uid = getattr(user, "firebase_uid", None) or getattr(user, "uid", None)
+            firebase_uid = getattr(user, "firebase_uid",
+                                   None) or getattr(user, "uid", None)
         if not firebase_uid:
             return jsonify({"error": "Unauthorized"}), 401
 
@@ -987,7 +898,8 @@ def register_routes(app):
             """
             cursor.execute(q, (firebase_uid,))
             rows = cursor.fetchall()
-            timeseries = [{"date": row[0].strftime("%Y-%m-%d") if hasattr(row[0], "strftime") else str(row[0]), "count": int(row[1])} for row in rows]
+            timeseries = [{"date": row[0].strftime("%Y-%m-%d") if hasattr(
+                row[0], "strftime") else str(row[0]), "count": int(row[1])} for row in rows]
 
             total_q = """
                 SELECT COUNT(*)
@@ -1013,7 +925,8 @@ def register_routes(app):
         Response: { success: True, total: N, timeseries: [{ date: 'YYYY-MM-DD', count: N }, ...] }
         """
         if not firebase_uid:
-            firebase_uid = getattr(user, "firebase_uid", None) or getattr(user, "uid", None)
+            firebase_uid = getattr(user, "firebase_uid",
+                                   None) or getattr(user, "uid", None)
         if not firebase_uid:
             return jsonify({"error": "Unauthorized"}), 401
 
@@ -1031,7 +944,8 @@ def register_routes(app):
             """
             cursor.execute(q, (firebase_uid,))
             rows = cursor.fetchall()
-            timeseries = [{"date": row[0].strftime("%Y-%m-%d") if hasattr(row[0], "strftime") else str(row[0]), "count": int(row[1])} for row in rows]
+            timeseries = [{"date": row[0].strftime("%Y-%m-%d") if hasattr(
+                row[0], "strftime") else str(row[0]), "count": int(row[1])} for row in rows]
 
             total_q = """
                 SELECT COUNT(*)

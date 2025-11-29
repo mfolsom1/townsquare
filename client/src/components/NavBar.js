@@ -17,6 +17,9 @@ export default function NavBar() {
   const { addEvent } = useEvents();
   const location = useLocation();
 
+  // Check if user is organization
+  const isOrganization = userProfile?.user_type === 'organization' || userProfile?.userType === 'organization';
+
   // redirect after logout
   const nav = useNavigate();
 
