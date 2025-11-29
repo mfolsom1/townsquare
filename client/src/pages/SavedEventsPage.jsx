@@ -16,6 +16,7 @@ const inRange = (d, from, to) => {
 };
 
 // Same layout grid of discover,  local time range formatter
+// eslint-disable-next-line no-unused-vars
 const formatRange = (startStr, endStr) => {
   const s = new Date(startStr);
   const e = endStr ? new Date(endStr) : s;

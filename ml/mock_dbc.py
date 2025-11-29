@@ -135,25 +135,49 @@ class MockDatabaseConnector:
 
     def _remove_synthetic_test_events(self):
         """Filter out any event whose Title contains 'Test Event' (case-insensitive)
-        or which has a tag 'test'
+        or which has a tag 'test'. Also filters events with obviously generated Lorem Ipsum content.
         """
         events = self.data.get('events', [])
         if not events:
             return
         filtered = []
+        removed_count = 0
+
         for e in events:
-            title = (e.get('Title') or '')
+            title = (e.get('Title') or e.get('title') or '')
             tags = e.get('Tags') or []
+            description = (e.get('Description') or e.get('description') or '')
+
+            # Check for test events
             if isinstance(title, str) and 'test event' in title.lower():
-                logger.info(
-                    f"Removing synthetic test event from fixture: {title}")
+                logger.info(f"Removing synthetic test event: {title}")
+                removed_count += 1
                 continue
+
+            # Check for test tags
             if any((isinstance(t, str) and t.lower() == 'test') for t in tags):
-                logger.info(
-                    f"Removing event with test tag from fixture: {title}")
+                logger.info(f"Removing event with test tag: {title}")
+                removed_count += 1
                 continue
+
+            # Check for placeholder/generated content (common phrases in fake data)
+            if isinstance(description, str) and len(description) > 100:
+                suspicious_phrases = [
+                    'lorem ipsum', 'dolor sit amet', 'consectetur adipiscing',
+                    'test description', 'placeholder text'
+                ]
+                if any(phrase in description.lower() for phrase in suspicious_phrases):
+                    logger.info(
+                        f"Removing event with placeholder content: {title}")
+                    removed_count += 1
+                    continue
+
             filtered.append(e)
+
         self.data['events'] = filtered
+        if removed_count > 0:
+            logger.info(
+                f"Filtered out {removed_count} synthetic/test events from fixture")
 
     def _create_rsvps(self, user_id: str, events: List[Dict]) -> List[Dict]:
         """Create mock RSVPs for a given user"""
@@ -205,20 +229,26 @@ class MockDatabaseConnector:
         return events
 
     def fetch_user(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch mock user by user ID"""
+        """Fetch mock user by user ID or username"""
         for u in self.data.get("users", []):
             if u.get("FirebaseUID") == user_id or u.get("Username") == user_id:
                 return u
-        # allow test_user_id match
+        # allow test_user_id match with fallback default user
         if user_id == self.test_user_id:
             return {
                 "FirebaseUID": self.test_user_id,
                 "Username": "test_user",
                 "Interests": ["music", "art"],
+                "Bio": "Test user bio",
+                "Location": "Test City",
                 "UserType": "individual",
                 "OrganizationName": None,
             }
         return None
+
+    def fetch_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """Fetch mock user by username (wrapper for consistency with DatabaseConnector)"""
+        return self.fetch_user(username)
 
     def fetch_users_for_training(self, limit: int = 500) -> List[Dict[str, Any]]:
         """Fetch mock users for training"""
@@ -237,14 +267,122 @@ class MockDatabaseConnector:
             acts = [a for a in acts if a.get("ActivityType") == activity_type]
         return acts
 
-    def fetch_user_friends(self, user_id: str, limit: int = 3, include_activity: bool = False) -> List[Dict[str, Any]]:
-        """Fetch mock user friends"""
-        friends = self.data.get("friends", [])
-        return friends[:limit]
+    def fetch_user_friends(self, user_id: str, limit: int = 100, include_activity: bool = False) -> List[Dict[str, Any]]:
+        """Fetch mock user friends - returns list of users that user_id is following with mutual status"""
+        all_friends = self.data.get("friends", [])
+
+        # Get friend relationships where user_id is the follower
+        friend_relationships = [
+            f for f in all_friends
+            if f.get("FollowerUID") == user_id
+        ]
+
+        if not friend_relationships:
+            return []
+
+        # Get the actual user records for the friends
+        friend_uids = [f["FollowingUID"] for f in friend_relationships]
+        friends_list = []
+
+        for friend_uid in friend_uids[:limit]:
+            friend_user = self.fetch_user(friend_uid)
+            if friend_user:
+                # Check if this is a mutual follow (friendship)
+                is_mutual = any(
+                    f.get("FollowerUID") == friend_uid and f.get(
+                        "FollowingUID") == user_id
+                    for f in all_friends
+                )
+
+                friends_list.append({
+                    "FirebaseUID": friend_user.get("FirebaseUID"),
+                    # Alias for compatibility
+                    "FriendUID": friend_user.get("FirebaseUID"),
+                    "Username": friend_user.get("Username", "Unknown"),
+                    "FirstName": friend_user.get("FirstName", ""),
+                    "LastName": friend_user.get("LastName", ""),
+                    "IsMutual": is_mutual  # Track mutual friendship
+                })
+
+        return friends_list
 
     def fetch_friend_recommendations(self, user_id: str, include_scoring: bool = True) -> List[Dict[str, Any]]:
-        """Fetch mock friend recommendations"""
-        return self.data.get("friend_recs", [])
+        """Generate friend recommendations dynamically from fixture data"""
+        # Get user's friends (IsMutual flag for boosting)
+        friends = self.fetch_user_friends(user_id, limit=100)
+
+        if not friends:
+            logger.debug(f"No friends found for user {user_id}")
+            return []
+
+        friend_events = {}
+
+        # Aggregate events that friends are attending/interested in
+        for friend in friends:
+            friend_uid = friend.get('FriendUID', friend.get('FirebaseUID'))
+            friend_username = friend.get('Username', 'Unknown')
+            is_mutual = friend.get('IsMutual', False)
+
+            # Get friend's RSVPs
+            friend_rsvps = self.fetch_user_rsvps(friend_uid)
+
+            for rsvp in friend_rsvps:
+                event_id = rsvp.get('EventID')
+                status = rsvp.get('Status', 'Interested')
+
+                if event_id not in friend_events:
+                    friend_events[event_id] = {
+                        'EventID': event_id,
+                        'FriendUsername': friend_username,
+                        'FriendStatus': status,
+                        'FriendCount': 0,
+                        'MutualFriendCount': 0,  # Track mutual friends separately
+                        'BaseScore': 0.0,
+                        'Statuses': [],
+                        'IsMutual': is_mutual
+                    }
+
+                friend_events[event_id]['FriendCount'] += 1
+                if is_mutual:
+                    friend_events[event_id]['MutualFriendCount'] += 1
+
+                friend_events[event_id]['Statuses'].append(status)
+
+                # Score based on RSVP status
+                status_scores = {'Going': 1.0, 'Maybe': 0.7, 'Interested': 0.5}
+                base_score = status_scores.get(status, 0.5)
+
+                # Apply 1.5x multiplier for mutual friendships
+                if is_mutual:
+                    base_score *= 1.5
+
+                friend_events[event_id]['BaseScore'] += base_score
+
+        # Convert to list
+        result = list(friend_events.values())
+
+        if include_scoring and result:
+            # Normalize scores by friend count
+            for rec in result:
+                rec['BaseScore'] = rec['BaseScore'] / \
+                    max(rec['FriendCount'], 1)
+
+                # Use most enthusiastic friend's status as primary status
+                if 'Going' in rec['Statuses']:
+                    rec['FriendStatus'] = 'Going'
+                elif 'Maybe' in rec['Statuses']:
+                    rec['FriendStatus'] = 'Maybe'
+                else:
+                    rec['FriendStatus'] = 'Interested'
+
+                # Clean up temporary field
+                del rec['Statuses']
+
+        logger.info(
+            f"Generated {len(result)} friend recommendations for user {user_id} "
+            f"({sum(1 for r in result if r.get('MutualFriendCount', 0) > 0)} with mutual follow boost)"
+        )
+        return result
 
     def store_friend_recommendations(self, user_id: str, friend_events: List[Dict[str, Any]]):
         """Store mock friend recommendations"""

@@ -62,7 +62,7 @@ export default function ProfileContainer() {
     let ints = [];
     let myEvts = [];
     let attendingEvts = [];
-    
+
     try {
       const rawInts = await getUserInterests(idToken);
       ints = Array.isArray(rawInts) ? rawInts : rawInts?.interests ?? norm.interests ?? [];
@@ -87,7 +87,7 @@ export default function ProfileContainer() {
       console.warn("Failed to fetch attending events:", e);
       attendingEvts = [];
     }
-    
+
     setProfile(rawProfile);
     setInterests(ints);
     setMyEvents(myEvts);
@@ -132,7 +132,8 @@ export default function ProfileContainer() {
     })();
 
     return () => { alive = false; };
-  }, [user, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, navigate]); // loadProfile is called within async IIFE, not directly as dependency
 
   // Persist edits, sync Firebase displayName, then refetch so refresh shows the new value
   const onSaveProfile = async ({ fullName, username, bio, location }) => {
@@ -169,7 +170,7 @@ export default function ProfileContainer() {
   };
 
   if (loading) return <div style={{ padding: 16 }}>Loading profile…</div>;
-  if (error)   return <div style={{ padding: 16, color: "#b91c1c" }}>Error: {error}</div>;
+  if (error) return <div style={{ padding: 16, color: "#b91c1c" }}>Error: {error}</div>;
 
   const norm = normalizeProfile(profile, user);
 
@@ -185,7 +186,7 @@ export default function ProfileContainer() {
       myEvents={myEvents || []}
       goingTo={attendingEvents || []}
       onSaveProfile={onSaveProfile}
-      onCreateEvent={() => {}}
+      onCreateEvent={() => { }}
     />
   );
 }

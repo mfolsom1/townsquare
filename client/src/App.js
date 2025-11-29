@@ -12,7 +12,6 @@ import RequireAuth from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthContext";
 import { EventProvider } from "./contexts/EventContext";
 import ProfileContainer from "./pages/ProfileContainer";
-import Profile from "./pages/Profile";
 import SavedEventsPage from "./pages/SavedEventsPage";
 import Following from "./pages/Following"
 import OrgDashboardContainer from "./pages/OrgDashboardContainer";
@@ -27,9 +26,9 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route
-                path="/*"
-                element={
-                  <RequireAuth>
+              path="/*"
+              element={
+                <RequireAuth>
                   <NavBar />
 
                   <div style={{ display: "flex" }}>
@@ -63,9 +62,9 @@ function App() {
                     </div>
                   </div>
                 </RequireAuth>
-                }
-              />
-           </Routes>
+              }
+            />
+          </Routes>
         </EventProvider>
       </AuthProvider>
     </Router>

@@ -1,3 +1,5 @@
+@import "Style.css";
+
 :root{
   --page:#ffffff;
   --stroke:#e7e8ee;
@@ -82,8 +84,8 @@
 /* Buttons (shared) */
 .pf-btn{
   border:1px solid var(--stroke);
-  background:#f3f4ff;
-  color:var(--brand);
+  background:#faf3ff;
+  color:var(--color-accent);
   padding:10px 14px;
   border-radius:360px;
   font-size:14px;
@@ -97,7 +99,7 @@
   justify-content: center;
   gap:8px;
 }
-.pf-btn:hover{ background:#e9ebff; }
+.pf-btn:hover{ background:#f4e9ff; }
 .pf-btn:active{ transform: translateY(1px); }
 .pf-btn:focus-visible{
   outline:2px solid var(--focus);
@@ -174,7 +176,7 @@
 /* Primary CTA (used for both "Create one" and "Discover events") */
 .pf-linkbtn,
 a.pf-linkbtn{
-  background:var(--brand);
+  background:var(--color-accent);
   color:#fff;
   border:none;
   padding:8px 12px;
@@ -186,7 +188,7 @@ a.pf-linkbtn{
   display:inline-flex; align-items:center; gap:8px;
 }
 .pf-linkbtn:hover,
-a.pf-linkbtn:hover{ background:var(--brand-600); }
+a.pf-linkbtn:hover{ background:var(--color-accent-dark); }
 .pf-linkbtn:active,
 a.pf-linkbtn:active{ transform: translateY(1px); }
 .pf-linkbtn:focus-visible,
@@ -197,7 +199,7 @@ a.pf-linkbtn:focus-visible{
 
 /* Make anchor CTA inside empty state match exactly */
 .pf-empty a{ 
-  background:var(--brand);
+  background:var(--color-accent);
   color:#fff;
   border:none;
   padding:8px 12px;
