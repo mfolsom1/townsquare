@@ -3,16 +3,25 @@
 
 -- Users table
 CREATE TABLE Users (
-    FirebaseUID NVARCHAR(128) PRIMARY KEY, -- Firebase UID
+    FirebaseUID NVARCHAR(128) PRIMARY KEY,
     Username NVARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL UNIQUE,
     Email NVARCHAR(320) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL UNIQUE,
     FirstName NVARCHAR(100),
     LastName NVARCHAR(100),
     Location NVARCHAR(200) NOT NULL,
     Bio NVARCHAR(1000),
+    UserType NVARCHAR(20) NOT NULL DEFAULT 'individual' CHECK (UserType IN ('individual', 'organization')),
+    OrganizationName NVARCHAR(200),
     CreatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
-    UpdatedAt DATETIME2 DEFAULT GETDATE() NOT NULL
+    UpdatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
+    CONSTRAINT chk_organization_name CHECK (
+        (UserType = 'organization' AND OrganizationName IS NOT NULL) OR
+        (UserType = 'individual' AND OrganizationName IS NULL)
+    )
 );
+
+-- Index for user type filtering
+CREATE INDEX idx_users_usertype ON Users (UserType);
 
 -- EventCategories table (referenced by Events)
 CREATE TABLE EventCategories (
@@ -40,6 +49,8 @@ CREATE TABLE Events (
     ImageURL NVARCHAR(500),
     CreatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
     UpdatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
+    IsArchived BIT NOT NULL DEFAULT 0,
+    ArchivedAt DATETIME2,
     CONSTRAINT chk_event_time CHECK (EndTime > StartTime),
     CONSTRAINT FK_Events_Organizer FOREIGN KEY (OrganizerUID) REFERENCES Users(FirebaseUID),
     CONSTRAINT FK_Events_Category FOREIGN KEY (CategoryID) REFERENCES EventCategories(CategoryID)
@@ -49,6 +60,8 @@ CREATE TABLE Events (
 CREATE INDEX idx_events_organizer ON Events (OrganizerUID);
 CREATE INDEX idx_events_category_starttime ON Events (CategoryID, StartTime);
 CREATE INDEX idx_events_starttime ON Events (StartTime);
+CREATE INDEX idx_events_archived ON Events (IsArchived);
+CREATE INDEX idx_events_archived_at ON Events (ArchivedAt) WHERE ArchivedAt IS NOT NULL;
 
 -- EventTags table
 CREATE TABLE EventTags (

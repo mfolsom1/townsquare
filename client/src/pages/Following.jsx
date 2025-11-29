@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
 import "./Following.css";
-import { getFriendEvents, getFriendCreatedEvents } from "../api";
+import { getFriendRsvps, getFriendCreatedEvents } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
 import SavedEvents from "../hooks/SavedEvents";
 import EventCard from "../components/EventCard";
 
 export default function Following() {
-  const [friendEvents, setFriendEvents] = useState([]);
-  const [orgEvents, setOrgEvents] = useState([]);
+  const [friendRsvpEvents, setFriendRsvpEvents] = useState([]);
+  const [friendCreatedEvents, setFriendCreatedEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { isSaved, toggleSaved } = SavedEvents();
@@ -23,7 +23,6 @@ export default function Following() {
       setLoading(true);
       setError(null);
       try {
-        // If the user is not logged in, mirror ProfileContainer and redirect to login
         if (!user) {
           navigate("/login", { replace: true });
           return;
@@ -31,17 +30,24 @@ export default function Following() {
 
         const idToken = await user.getIdToken();
 
-        const response1 = await getFriendEvents(idToken);
-        const friendEventsArray = Array.isArray(response1.events)
-          ? response1.events
-          : [];
-        if (mounted) setFriendEvents(friendEventsArray);
+        /* Fetch events from friends: RSVPs and created events */
+        const [rsvpResponse, createdResponse] = await Promise.all([
+          getFriendRsvps(idToken),
+          getFriendCreatedEvents(idToken)
+        ]);
 
-        const response2 = await getFriendCreatedEvents(idToken);
-        const createdEventsArray = Array.isArray(response2.events)
-          ? response2.events
+        const friendRsvpData = Array.isArray(rsvpResponse.events)
+          ? rsvpResponse.events
           : [];
-        if (mounted) setOrgEvents(createdEventsArray);
+
+        const friendCreatedData = Array.isArray(createdResponse.events)
+          ? createdResponse.events
+          : [];
+
+        if (mounted) {
+          setFriendRsvpEvents(friendRsvpData);
+          setFriendCreatedEvents(friendCreatedData);
+        }
       } catch (err) {
         if (mounted) setError(err.message || "An unexpected error occurred.");
       } finally {
@@ -54,74 +60,68 @@ export default function Following() {
     };
   }, [user, navigate]);
 
-  const renderContent = () => {
-    if (loading) return <p className="ts-loading">Loading events...</p>;
-    if (error) return <p className="ts-error">Error: {error}</p>;
-
-    return (
-      <div className="event-grid">
-        {friendEvents.map((event) => (
-          <EventCard
-            key={event.event_id}
-            event={event}
-            isSaved={isSaved}
-            onToggleSaved={toggleSaved}
-          />
-        ))}
-      </div>
-    );
-  };
-
   return (
-    <main className="main-container">
+    <main className="ts-page">
       <div>
-        <h1 className="page-header">Following</h1>
-        <p className="page-subheading">
-          Events from people and organizations you follow
+        <h1 className="ts-title">Following</h1>
+        <p className="ts-subtitle">
+          Events from people you follow
         </p>
       </div>
 
-      {/* Friends Section */}
-      <div>
-        <h2 className="friends-header">Events with People You Follow</h2>
-        <div>
-          {loading && <p className="ts-loading">Loading events...</p>}
-          {error && <p className="ts-error">Error: {error}</p>}
-          {!loading && !error && (
-            <div className="event-grid">
-              {friendEvents.map((event) => (
-                <EventCard
-                  key={event.event_id}
-                  event={event}
-                  isSaved={isSaved}
-                  onToggleSaved={toggleSaved}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      {loading && <p className="ts-loading">Loading events...</p>}
+      {error && <p className="ts-error">Error: {error}</p>}
 
-      {/* Organizations Section */}
-      <div>
-        <h2 className="orgs-header">Events from Organizations You Follow</h2>
-        <div>
-          {loading && <p className="ts-loading">Loading events...</p>}
-          {error && <p className="ts-error">Error: {error}</p>}
-          {!loading && !error && (
-            <div className="event-grid">
-              {orgEvents.map((event) => (
-                <EventCard
-                  key={event.event_id}
-                  event={event}
-                  isSaved={isSaved}
-                  onToggleSaved={toggleSaved}
-                />
-              ))}
+      {!loading && !error && (
+        <>
+          {/* Friends RSVP Section */}
+          <div>
+            <h2 className="friends-header">Friends' RSVPs</h2>
+            <div>
+              {friendRsvpEvents.length > 0 ? (
+                <div className="event-grid">
+                  {friendRsvpEvents.map((event) => (
+                    <EventCard
+                      key={event.event_id}
+                      event={event}
+                      isSaved={isSaved}
+                      onToggleSaved={toggleSaved}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="no-events-message">
+                  No events from people you follow at the moment. Start following more friends!
+                </p>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+
+          {/* Friends Created Events Section */}
+          <div>
+            <h2 className="friends-header">Events Created by Friends</h2>
+            <div>
+              {friendCreatedEvents.length > 0 ? (
+                <div className="event-grid">
+                  {friendCreatedEvents.map((event) => (
+                    <EventCard
+                      key={event.event_id}
+                      event={event}
+                      isSaved={isSaved}
+                      onToggleSaved={toggleSaved}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="no-events-message">
+                  No events created by people you follow. Encourage them to organize something!
+                </p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }
+

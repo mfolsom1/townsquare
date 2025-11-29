@@ -54,8 +54,8 @@ Web application with a React frontend, Flask API, TensorFlow-based recommendatio
 *Create and activate virtual environment*
 
     python -m venv .venv
-    source .venv/bin/activate  # Linux/Mac
     .\.venv\Scripts\activate   # Windows
+    source .venv/bin/activate  # Linux/Mac
 
 *Install dependencies*
 
@@ -67,36 +67,35 @@ Web application with a React frontend, Flask API, TensorFlow-based recommendatio
 
 *Edit .env with your:*
 
-    AZURE_SQL_SERVER=yourserver.database.windows.net
-    AZURE_SQL_DATABASE=your_db_name
-    AZURE_SQL_USERNAME=your_admin_user
-    AZURE_SQL_PASSWORD=your_password
-    JWT_SECRET_KEY=your_jwt_secret
-    GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/firebase-adminsdk.json
+    DB_SERVER=townsquare.database.windows.net
+    DB_DATABASE=townsquare
+    DB_USERNAME=townsquare_admin
+    DB_PASSWORD=password_from_aaron
+    GOOGLE_APPLICATION_CREDENTIALS=json_from_aaron
 
 *Start the Flask server*
 
-    flask run --host=0.0.0.0 --port=5000
+    cd ..
+    python -m server.app
+
+Or for hot reloading during development:
+
+    cd server
+    flask run
 
 
 ### 2. Frontend Setup (different CMD):
 
-    cd ../client
+    cd client
 
 *Install dependencies*
 
     npm install
 
-
 *Start development server*
 
     npm start
 
-*Proxy setup:*
-Ensure your `package.json` in `client/` has:
-
-    "proxy": "http://localhost:5000"
-
-This allows API calls from React to Flask during development.
+The React app runs on port 3000 and proxies API requests to Flask on port 5000.
 
 

@@ -1,3 +1,5 @@
+@import "../pages/Style.css";
+
 /* layout */
 .ts-nav {
     position: sticky; top: 0;
@@ -8,15 +10,17 @@
     z-index: 1000;
     align-items: center;
     padding: 10px 20px;
-    background: #fff;
-    border-bottom: 1px solid #eee;
+    background: var(--color-navbar-bg);
+    border-bottom: 1px solid var(--color-accent-2);
+    box-shadow: 0px 7px 7px rgba(0,0,0,0.1);
   }
   
   /* left */
   .ts-brand {
     font-size: 24px;
     font-weight: 600;
-    color: #222;
+    font-family: var(--font-heading);
+    color: var(--color-accent);
     text-decoration: none;
   }
   .ts-left { justify-self: start; }
@@ -57,12 +61,35 @@
     gap: 14px;
     align-items: center;
   }
-  .ts-create {
-    font-size: 13px;
-    color: #222;
+  .ts-btn {
+    /* background: var(--color-accent);
+    font-size: 12px;
+    color: #fff;
+    font-weight: 600;
     text-decoration: none;
+    border-radius: 360px;
+    cursor: pointer;
+    border: none;
+    outline: none;
+    height: 30px;
+    padding: 10px 14px;
+    text-align: center; */
+    background: var(--color-accent);
+    color: #fff;
+    border: none;
+    border-radius: 360px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 10px;
+    width: auto;            /* fixed horizontal width */
+    text-align: center;
   }
-  .ts-create:hover { text-decoration: underline; }
+
+  .ts-btn:hover {
+    opacity: 1;
+    background: var(--color-accent-dark);
+  }
   
   .ts-icon-btn {
     border: none; background: transparent; cursor: pointer;
@@ -76,5 +103,9 @@
     display: grid; place-items: center;
     background: #e9eef7; color: #3b4a6b;
     font-size: 12px; font-weight: 700;
+  }
+
+  .ts-search {
+    margin-left: 0px; 
   }
   

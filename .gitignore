@@ -29,12 +29,16 @@ yarn-error.log*
 *.dump
 *.db
 /migrations/
+database/run_archiving_task.bat
+database/scheduled_archiving_tasks.sql
 
 # ==== MACHINE LEARNING ====
 *.h5
 *.pkl
 *.joblib
 /data/
+ml/model_artifacts_test/*.json
+ml/vector_store/*.json
 
 # ==== IDE/EDITOR CONFIG ====
 .vscode/

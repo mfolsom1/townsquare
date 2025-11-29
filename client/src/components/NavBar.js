@@ -4,6 +4,7 @@ import CreateEventModal from "./CreateEvent";
 import { useAuth } from "../auth/AuthContext";
 import SearchBar from "./SearchBar";
 import { useEvents } from "../contexts/EventContext";
+import { getUserProfile } from "../api";
 import "./NavBar.css";
 
 export default function NavBar() {
@@ -11,6 +12,8 @@ export default function NavBar() {
   const [openCreate, setOpenCreate] = useState(false);
 
   const { user, logout, initials } = useAuth();
+  const [error, setError] = useState("");
+  const [userProfile, setUserProfile] = useState(null);
   const { addEvent } = useEvents();
   const location = useLocation();
 
@@ -46,27 +49,29 @@ export default function NavBar() {
           <Link to="/discover" className="ts-brand">Townsquare</Link>
         </div>
 
-        <SearchBar />
+        <div className="ts-search">
+          <SearchBar />
+        </div>
 
-        <nav className="ts-center">
+        {/* <nav className="ts-center">
           <NavLink to="/discover" className="ts-tab">Discover</NavLink>
           <NavLink to="/following" className="ts-tab">Following</NavLink>
           <NavLink to="/saved" className="ts-tab">Saved Events</NavLink>
-        </nav>
+        </nav> */}
 
         <div className="ts-right">
-          <button className="ts-create-btn" onClick={() => setOpenCreate(true)}>
-            Create Event +
+          <button className="ts-btn" onClick={() => setOpenCreate(true)}>
+            Create Event
           </button>
 
           {/* avatar links to account profile */}
-          <Link to="/profile" className="ts-avatar" aria-label="Open profile" title={user?.displayName || user?.email || "Account"}>
+          <Link to={isOrganization ? "/dashboard" : "/profile"} className="ts-avatar" aria-label="Open profile" title={user?.displayName || user?.email || "Account"}>
             {initials}
           </Link>
 
-          <button className="ts-logout" onClick={handleLogout} aria-label="Log out">
+          {/* <button className="ts-btn" onClick={handleLogout} aria-label="Log out">
             Log out
-          </button>
+          </button> */}
         </div>
       </header>
 

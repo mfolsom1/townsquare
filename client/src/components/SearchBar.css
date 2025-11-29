@@ -1,8 +1,10 @@
+@import "../pages/Style.css";
+
 input {
-  width: 600px;
+  width: 40rem;
   border-radius: 360px;
-  border-width: 1px;
-  border-color: #1c1c1c;
+  border-width: 2px;
+  border-color: var(--color-accent-2);
   font-size: 16px;
   padding: 6px 12px;
 }

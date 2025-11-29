@@ -1,6 +1,8 @@
+@import "Style.css";
+
 /* General page layout */
 .ts-page {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 2rem auto;
     padding: 0 1.5rem; /* Added more horizontal padding */
 }
@@ -11,7 +13,7 @@
     align-items: flex-end;
     margin-bottom: 2.5rem;
     flex-wrap: wrap;
-    gap: 1rem;
+    /* gap: 1rem; */
 }
 
 .ts-title {
@@ -22,24 +24,26 @@
 
 .ts-subtitle {
     font-size: 1.1rem;
-    color: #555;
+    color: var(--color-text-accent);
     margin-bottom: 0;
     flex-basis: 100%;
 }
 
 .ts-refresh-btn, .ts-retry-btn {
-    background: #1f6feb;
+    background: var(--color-accent);
     color: white;
     border: none;
+    margin: 10px 0px;
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: 360px;
+    font-weight: 600;
     cursor: pointer;
     font-size: 14px;
     transition: background-color 0.2s ease;
 }
 
 .ts-refresh-btn:hover:not(:disabled), .ts-retry-btn:hover {
-    background: #1557c7;
+    background: var(--color-accent-dark);
 }
 
 .ts-refresh-btn:disabled {
@@ -53,7 +57,7 @@
 }
 
 .ts-error {
-    color: #dc2626;
+    color: var(--color-error);
     margin-bottom: 1rem;
 }
 
@@ -71,29 +75,31 @@
 .event-grid {
     display: grid;
     /* CHANGE: Increased gap for more separation between cards */
-    gap: 2rem;
     /* CHANGE: Creates smaller cards by fitting more into a row on larger screens */
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    row-gap: 5rem;
+    column-gap: 6rem;
 }
 
 /* --- Event Card (The "Box") --- */
 .event-card {
-    background-color: #ffffff;
+    background-color: var(--color-primary);
     text-decoration: none;
     color: inherit;
     display: flex;
     flex-direction: column;
     /* CHANGE: These properties create the distinct "box" effect */
-    border: 1px solid #e0e0e0;
+    border: 1px solid #e3e3e3;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    /* box-shadow:5px 10px 5px rgba(0,0,0,0.4); */
+    box-shadow: 2px 3px 5px rgba(0, 0, 0, 0.2);
     overflow: hidden; /* Ensures the image respects the rounded corners */
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
 .event-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    /* box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12); */
 }
 
 /* --- Card Image & Badge --- */
@@ -131,7 +137,7 @@
 
 .event-card-title {
     /* CHANGE: Smaller font size */
-    font-size: 1.1rem;
+    font-size: 1.2rem !important;
     margin: 0 0 0.25rem 0;
 }
 
@@ -139,14 +145,14 @@
 .event-card-location {
     /* CHANGE: Smaller font size */
     font-size: 0.8rem;
-    color: #666;
+    color: var(--color-text-accent-2) !important;
     margin: 0.1rem 0;
 }
 
 .event-card-description {
     /* CHANGE: Smaller font size */
     font-size: 0.85rem;
-    color: #333;
+    color: var(--color-text-accent) !important;
     margin: 0.75rem 0;
     line-height: 1.4;
     flex-grow: 1; /* Pushes the attendee count to the bottom */
@@ -158,7 +164,7 @@
     gap: 0.5rem;
     /* CHANGE: Smaller font size */
     font-size: 0.8rem;
-    color: #555;
+    color: var(--color-text-accent-2) !important;
     margin-top: auto; /* Aligns this item to the bottom of the card */
 }
 
@@ -167,16 +173,16 @@
     text-align: center;
     padding: 3rem;
     font-size: 1.2rem;
-    color: #555;
+    color: var(--color-text-accent-2) !important;
 }
 
 .ts-error {
-    color: #d9534f;
+    color: var(--color-error);
 }
 
 /* card container already exists in your sheet; these are just the save/heart bits */
 /* Ensure the card container allows absolute children */
-.event-card { position: relative; overflow: hidden; }
+.event-card { position: relative; overflow: hidden;}
 
 /* Heart (save) button */
 .event-save {
@@ -209,5 +215,6 @@
 /* Saved state: fill the heart & brand color */
 .event-save.saved .event-heart {
   font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24;
-  color: var(--brand, #6E77FF);
+  color: var(--brand, #da5d5d);
+  /* color: var(--color-accent-dark, #6E77FF); */
 }

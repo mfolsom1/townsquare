@@ -1,5 +1,4 @@
 # utils.py: Helper utilities for the ml package
-import typing as _typing
 from dotenv import load_dotenv
 import time
 import numpy as np
@@ -22,14 +21,18 @@ except Exception:
     SentenceTransformer = None
     HAS_SENTENCE_TRANSFORMERS = False
 
-# TODO: split file
+# TODO: split file?
 
 # Load environment variables
 load_dotenv()
 
 # Configuration
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
-VECTOR_STORAGE_PATH = "ml/vector_store"
+
+# Single source of truth for vector storage (project root)
+PROJECT_ROOT = Path(__file__).parent.parent
+VECTOR_STORAGE_PATH = str(PROJECT_ROOT / "ml" / "vector_store")
+
 DEFAULT_TOP_K = 10
 
 
@@ -47,35 +50,17 @@ class TextPreprocessor:
     """Preprocesses text for embeddings"""
 
     def __init__(self):
-        self.stop_words = set(['a',
-                               'an',
-                               'the',
-                               'and',
-                               'or',
-                               'but',
-                               'in',
-                               'on',
-                               'at',
-                               'to',
-                               'for',
-                               'of',
-                               'with',
-                               'by'])
+        self.stop_words = set(['a', 'an', 'the', 'and', 'or', 'but', 'in',
+                               'on', 'at', 'to', 'for', 'of', 'with', 'by'])
 
     def clean_text(self, text: str) -> str:
         """Basic text cleaning"""
         if not text:
             return ""
 
-        # Convert to lowercase
         text = text.lower()
-
-        # Remove special characters but keep basic punctuation
         text = re.sub(r'[^a-zA-Z0-9\s.,!?]', '', text)
-
-        # Remove extra whitespace
         text = ' '.join(text.split())
-
         return text
 
     def preprocess_event_text(self, event_data: Dict[str, Any]) -> str:
@@ -85,19 +70,9 @@ class TextPreprocessor:
         category = event_data.get('CategoryName', '')
         tags = event_data.get('Tags', [])
 
-        # Handle tags whether they're string or list
-        if isinstance(tags, list):
-            tags_text = ' '.join(tags)
-        else:
-            tags_text = str(tags)
-
-        # Combine all text
+        tags_text = ' '.join(tags) if isinstance(tags, list) else str(tags)
         combined_text = f"{title} {description} {category} {tags_text}"
-
-        # Clean the text
-        cleaned_text = self.clean_text(combined_text)
-
-        return cleaned_text
+        return self.clean_text(combined_text)
 
     def preprocess_user_interests(self, interests: List[str]) -> str:
         """Preprocess user interests text"""
@@ -117,28 +92,20 @@ class TextPreprocessor:
         bio_cleaned = self.clean_text(bio)
         location_cleaned = self.clean_text(location)
 
-        # Weight interests more heavily than bio for similarity
+        # Duplicate interests to weight them more heavily
         profile_text = f"{interests_text} {interests_text} {bio_cleaned} {location_cleaned}"
-
         return profile_text
 
 
 class DataValidator:
-    """Data validation for full pipeline run"""
+    """Data validation for ML pipeline"""
 
     def __init__(self):
         self.required_event_fields = ['EventID', 'Title', 'StartTime']
 
-    def validate_events(
-            self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def validate_events(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Validate event data for training"""
-        valid_events = []
-
-        for event in events:
-            if self._is_valid_event(event):
-                valid_events.append(event)
-
-        return valid_events
+        return [event for event in events if self._is_valid_event(event)]
 
     def _is_valid_event(self, event: Dict[str, Any]) -> bool:
         """Check if event has required fields and valid data"""
@@ -146,16 +113,12 @@ class DataValidator:
             if field not in event or not event[field]:
                 return False
 
-        # Validate text content
         title = event.get('Title', '')
-        if len(title.strip()) < 3:
-            return False
-
-        return True
+        return len(title.strip()) >= 3
 
 
 class DatabaseConnector:
-    """Handles model azure db connections and queries"""
+    """Handles Azure SQL database connections and queries"""
 
     def __init__(self):
         self.connection_string = self._get_connection_string()
@@ -178,8 +141,6 @@ class DatabaseConnector:
         )
 
     def get_connection(self):
-        # In test mode we don't require pyodbc
-        # If not in test and pyodbc isn't available, raise ImportError
         if TEST_MODE:
             raise RuntimeError(
                 "Database connections are disabled in ML_TEST_MODE. Use MockDatabaseConnector for tests.")
@@ -192,8 +153,7 @@ class DatabaseConnector:
             )
         return pyodbc.connect(self.connection_string)
 
-    def fetch_events(
-            self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def fetch_events(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Fetch events with their categories and tags"""
         try:
             with self.get_connection() as conn:
@@ -220,13 +180,9 @@ class DatabaseConnector:
                 events = []
 
                 for row in cursor.fetchall():
-                    # Convert tags string to clist
                     event = dict(zip(columns, row))
-                    if event.get('Tags'):
-                        event['Tags'] = [tag.strip()
-                                         for tag in event['Tags'].split(',')]
-                    else:
-                        event['Tags'] = []
+                    event['Tags'] = [tag.strip() for tag in event['Tags'].split(
+                        ',')] if event.get('Tags') else []
                     events.append(event)
 
                 logger.info(f"Fetched {len(events)} events from database")
@@ -244,32 +200,23 @@ class DatabaseConnector:
 
                 query = """
                 SELECT
-                    u.FirebaseUID,
-                    u.Username,
-                    u.Email,
-                    u.FirstName,
-                    u.LastName,
-                    u.Location,
-                    u.Bio,
+                    u.FirebaseUID, u.Username, u.Email, u.FirstName, u.LastName,
+                    u.Location, u.Bio, u.UserType, u.OrganizationName,
                     STRING_AGG(i.Name, ', ') as Interests
                 FROM Users u
                 LEFT JOIN UserInterests ui ON u.FirebaseUID = ui.UserUID
                 LEFT JOIN Interests i ON ui.InterestID = i.InterestID
                 WHERE u.FirebaseUID = ?
-                GROUP BY u.FirebaseUID, u.Username, u.Email, u.FirstName, u.LastName, u.Location, u.Bio
+                GROUP BY u.FirebaseUID, u.Username, u.Email, u.FirstName, u.LastName, u.Location, u.Bio, u.UserType, u.OrganizationName
                 """
                 cursor.execute(query, (user_uid,))
                 columns = [column[0] for column in cursor.description]
                 row = cursor.fetchone()
 
                 if row:
-                    # Convert interests string to list
                     user = dict(zip(columns, row))
-                    if user.get('Interests'):
-                        user['Interests'] = [interest.strip()
-                                             for interest in user['Interests'].split(',')]
-                    else:
-                        user['Interests'] = []
+                    user['Interests'] = [interest.strip() for interest in user['Interests'].split(
+                        ',')] if user.get('Interests') else []
                     return user
                 return None
 
@@ -277,8 +224,39 @@ class DatabaseConnector:
             logger.error(f"Error fetching user {user_uid}: {e}")
             return None
 
-    def fetch_users_for_training(
-            self, limit: int = 500) -> List[Dict[str, Any]]:
+    def fetch_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """Fetch user data by Username"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                query = """
+                SELECT
+                    u.FirebaseUID, u.Username, u.Email, u.FirstName, u.LastName,
+                    u.Location, u.Bio, u.UserType, u.OrganizationName,
+                    STRING_AGG(i.Name, ', ') as Interests
+                FROM Users u
+                LEFT JOIN UserInterests ui ON u.FirebaseUID = ui.UserUID
+                LEFT JOIN Interests i ON ui.InterestID = i.InterestID
+                WHERE u.Username = ?
+                GROUP BY u.FirebaseUID, u.Username, u.Email, u.FirstName, u.LastName, u.Location, u.Bio, u.UserType, u.OrganizationName
+                """
+                cursor.execute(query, (username,))
+                columns = [column[0] for column in cursor.description]
+                row = cursor.fetchone()
+
+                if row:
+                    user = dict(zip(columns, row))
+                    user['Interests'] = [interest.strip() for interest in user['Interests'].split(
+                        ',')] if user.get('Interests') else []
+                    return user
+                return None
+
+        except Exception as e:
+            logger.error(f"Error fetching user by username {username}: {e}")
+            return None
+
+    def fetch_users_for_training(self, limit: int = 500) -> List[Dict[str, Any]]:
         """Fetch user data for similarity analysis"""
         try:
             with self.get_connection() as conn:
@@ -286,10 +264,8 @@ class DatabaseConnector:
 
                 query = """
                     SELECT
-                        u.FirebaseUID,
-                        u.Username,
-                        u.Location,
-                        u.Bio,
+                        u.FirebaseUID, u.Username, u.Location, u.Bio,
+                        u.UserType, u.OrganizationName,
                         STRING_AGG(i.Name, ', ') AS Interests
                     FROM Users u
                     LEFT JOIN UserInterests ui ON u.FirebaseUID = ui.UserUID
@@ -300,7 +276,7 @@ class DatabaseConnector:
                         UNION
                         SELECT DISTINCT UserUID FROM UserInterests
                     )
-                    GROUP BY u.FirebaseUID, u.Username, u.Location, u.Bio
+                    GROUP BY u.FirebaseUID, u.Username, u.Location, u.Bio, u.UserType, u.OrganizationName
                 """
 
                 if limit:
@@ -312,11 +288,8 @@ class DatabaseConnector:
 
                 for row in cursor.fetchall():
                     user = dict(zip(columns, row))
-                    if user.get('Interests'):
-                        user['Interests'] = [interest.strip()
-                                             for interest in user['Interests'].split(',')]
-                    else:
-                        user['Interests'] = []
+                    user['Interests'] = [interest.strip() for interest in user['Interests'].split(
+                        ',')] if user.get('Interests') else []
                     users.append(user)
 
                 return users
@@ -500,18 +473,11 @@ class DatabaseConnector:
                 cursor = conn.cursor()
 
                 if include_scoring:
-                    # Query with friend-based scoring
                     query = """
                         SELECT DISTINCT
-                            e.EventID,
-                            e.Title,
-                            e.Description,
-                            e.StartTime,
-                            e.Location,
-                            c.Name AS CategoryName,
-                            u.Username AS FriendUsername,
-                            r.Status AS FriendStatus,
-                            -- Calculate friend influence score
+                            e.EventID, e.Title, e.Description, e.StartTime,
+                            e.Location, c.Name AS CategoryName,
+                            u.Username AS FriendUsername, r.Status AS FriendStatus,
                             CASE 
                                 WHEN r.Status = 'Going' THEN 2.0
                                 WHEN r.Status = 'Interested' THEN 1.0
@@ -543,27 +509,19 @@ class DatabaseConnector:
                         AND r.Status IN ('Going', 'Interested')
                         AND e.StartTime > GETDATE()
                         AND NOT EXISTS (
-                            SELECT 1
-                            FROM RSVPs r2
-                            WHERE r2.UserUID = ?
-                                AND r2.EventID = r.EventID
+                            SELECT 1 FROM RSVPs r2
+                            WHERE r2.UserUID = ? AND r2.EventID = r.EventID
                         )
                         ORDER BY FriendCount DESC, BaseScore DESC, e.StartTime ASC
                     """
                     cursor.execute(
                         query, (user_uid, user_uid, user_uid, user_uid))
                 else:
-                    # Fallback to simple query
                     query = """
                         SELECT DISTINCT
-                            e.EventID,
-                            e.Title,
-                            e.Description,
-                            e.StartTime,
-                            e.Location,
-                            c.Name AS CategoryName,
-                            u.Username AS FriendUsername,
-                            r.Status AS FriendStatus
+                            e.EventID, e.Title, e.Description, e.StartTime,
+                            e.Location, c.Name AS CategoryName,
+                            u.Username AS FriendUsername, r.Status AS FriendStatus
                         FROM RSVPs r
                         JOIN SocialConnections sc ON r.UserUID = sc.FollowingUID
                         JOIN Users u ON r.UserUID = u.FirebaseUID
@@ -573,10 +531,8 @@ class DatabaseConnector:
                         AND r.Status IN ('Going', 'Interested')
                         AND e.StartTime > GETDATE()
                         AND NOT EXISTS (
-                            SELECT 1
-                            FROM RSVPs r2
-                            WHERE r2.UserUID = ?
-                                AND r2.EventID = r.EventID
+                            SELECT 1 FROM RSVPs r2
+                            WHERE r2.UserUID = ? AND r2.EventID = r.EventID
                         )
                         ORDER BY r.CreatedAt DESC
                     """
@@ -730,34 +686,28 @@ class VectorStore:
 
     def __init__(self, storage_path: str = VECTOR_STORAGE_PATH):
         self.storage_path = Path(storage_path)
-        self.storage_path.mkdir(exist_ok=True)
+        self.storage_path.mkdir(parents=True, exist_ok=True)
 
     def save_vectors(self, vectors: np.ndarray, ids: List, vector_type: str):
-        """Save vectors to FAISS index and metadata"""
+        """Save vectors and metadata with atomic file operations"""
         if len(vectors) == 0:
             logger.warning(f"No vectors to save for {vector_type}")
             return
 
         dimension = vectors.shape[1]
 
-        # Normalize vectors for cosine similarity
         norms = np.linalg.norm(vectors, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
         normalized = vectors / norms
 
         vec_path = self.storage_path / f"{vector_type}_vectors.npy"
-        # Write numpy array to a temp file and atomically replace the final file
         try:
             tmp_vec = vec_path.with_suffix('.npy.tmp')
-            # Use a binary file handle when saving so numpy does not auto-append
-            # a second '.npy' suffix, guaranteeing the tmp file path is as expected
             with open(tmp_vec, 'wb') as vf:
                 np.save(vf, normalized)
-            # Try atomic replace of file (works across Windows and POSIX)
             os.replace(str(tmp_vec), str(vec_path))
         except Exception as e:
             logger.error(f"Error saving vectors to {vec_path}: {e}")
-            # Attempt cleanup through unlink
             try:
                 if tmp_vec.exists():
                     tmp_vec.unlink()
@@ -787,11 +737,9 @@ class VectorStore:
                 pass
             return
 
-        # Write a small manifest with checksum for integrity checks
         try:
             import hashlib
             sha256 = hashlib.sha256()
-            # Read the saved vectors file and compute sha256
             with open(vec_path, 'rb') as vf:
                 for chunk in iter(lambda: vf.read(8192), b''):
                     sha256.update(chunk)
@@ -808,11 +756,10 @@ class VectorStore:
         except Exception as e:
             logger.warning(f"Could not write manifest for {vector_type}: {e}")
 
-        logger.info(
-            f"Saved {len(ids)} {vector_type} vectors to {vec_path} (origin: training)")
+        logger.info(f"Saved {len(ids)} {vector_type} vectors to {vec_path}")
 
     def load_vectors(self, vector_type: str) -> Tuple[Any, List]:
-        """Load vector numpy file and metadata; return in-memory wrapper and ids."""
+        """Load vector file and metadata, return in-memory wrapper and ids"""
         metadata_path = self.storage_path / f"{vector_type}_metadata.json"
         if not metadata_path.exists():
             logger.warning(

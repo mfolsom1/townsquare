@@ -1,0 +1,111 @@
+@import "../pages/Style.css";
+
+:root {
+  --nav-left-width: 10vw; /* adjust as needed, can use px if preferred (e.g. 160px) */
+}
+
+/* keep layout consistent and ensure nav stays on top */
+.lts-nav {
+  position: fixed;   /* <- changed from sticky */
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--nav-left-width);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--color-navbar-bg);
+  border-right: 1px solid var(--color-accent-2);
+  padding: 60px 16px;
+  z-index: 900;      /* high enough to sit above content */
+  box-sizing: border-box;
+  overflow-y: auto;   /* allow nav content to scroll independently */
+}
+
+.lts-brand {
+  font-size: 22px;
+  font-weight: 600;
+  font-family: var(--font-heading);
+    color: var(--color-accent);
+  text-decoration: none;
+  margin-bottom: 24px;
+}
+
+.lts-center {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  flex: 1;
+}
+
+.lts-tab {
+  display: flex;
+  justify-content: left;
+  align-items: left;
+  text-align: left;
+
+  position: relative;
+  font-size: 15px;
+  color: var(--color-text-dark);
+  text-decoration: none;
+  opacity: 0.8;
+  padding: 12px 12px;
+  border-radius: 8px;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.lts-tab:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.lts-tab.active {
+  opacity: 1;
+  font-weight: 600;
+  background: rgba(140, 27, 140, 0.08);
+}
+
+.lts-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  padding-top: 16px;
+  z-index: 1; /* optional: ensure avatar/button areas don't overlap */
+}
+
+.lts-create {
+  font-size: 14px;
+  color: #222;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.lts-create:hover {
+  text-decoration: underline;
+}
+
+.lts-icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #333;
+  padding: 6px;
+  border-radius: 999px;
+}
+
+.lts-icon-btn:hover {
+  background: #f2f4f7;
+}
+
+.lts-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #e9eef7;
+  color: #3b4a6b;
+  font-size: 13px;
+  font-weight: 700;
+}

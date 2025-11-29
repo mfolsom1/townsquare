@@ -1,24 +1,87 @@
+@import "Style.css";
+
+/* Match Discover page header layout and spacing with adjusted color & size */
 .main-container {
-    max-width: 1200px;
-    margin: 2rem auto;
-    padding: 0 1.5rem; /* Added more horizontal padding */
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;              /* same page padding as Discover */
+  box-sizing: border-box;
 }
 
 .page-header {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 1.1;
+  color: #1f2937;
+  margin: 0 0 8px 0;
+  display: block;
 }
 
+/* Subheading (adjusted color and size) */
 .page-subheading {
-  font-size: 1.1rem;
-  color: #555;
-  margin-bottom: 2.5rem;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  font-weight: 500;
+  font-size: 16px;           /* slightly larger for readability */
+  color: #4b5563;            /* muted slate for subtext */
+  margin: 0 0 18px 0;
+  display: block;
+}
+
+/* Keep event grid spacing consistent with Discover */
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+/* Loading / error states reuse Discover styles */
+.ts-loading, .ts-error {
+  margin: 16px 0;
+  color: var(--color-muted, #6c757d);
+}
+
+/* Small screens: preserve padding and scale down header sizes */
+@media (max-width: 900px) {
+  .main-container {
+    padding: 16px;
+  }
+  .page-header { font-size: 22px; }
+  .page-subheading { font-size: 14px; }
 }
 
 .friends-header {
   font-size: 2rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: #333;
 }
 
 .orgs-header {
   font-size: 2rem;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.no-events-message {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin: 1rem 0 2rem 0;
+}
+
+.ts-loading {
+  color: #007bff;
+}
+
+.ts-error {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
 }

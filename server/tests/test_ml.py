@@ -1,5 +1,6 @@
 """
 Unit tests for ML recommendation system
+<<<<<<< HEAD
 
 This test suite validates the FUNCTIONALITY of the recommendation pipeline:
 - Tests that recommendations are generated
@@ -8,6 +9,8 @@ This test suite validates the FUNCTIONALITY of the recommendation pipeline:
 - Verifies recommendation strategies work
 - Tests edge cases (cold start, duplicates, score ordering)
 Usage: pytest server/tests/test_ml.py -v
+=======
+>>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
 """
 import pytest
 import types
@@ -109,6 +112,7 @@ def test_ml_recommendations(ml_fixtures):
     resp = api.get_recommendations("user_001", top_k=5)
     recs = resp.get('recommendations', [])
 
+<<<<<<< HEAD
     # Verify response structure
     assert isinstance(recs, list), "Recommendations should be a list"
     assert resp.get(
@@ -129,6 +133,13 @@ def test_ml_recommendations(ml_fixtures):
         assert 'similarity_score' in first_rec, "Each recommendation should have similarity_score"
         assert isinstance(first_rec['similarity_score'],
                           (int, float)), "Score should be numeric"
+=======
+    assert isinstance(recs, list)
+    assert resp.get("count", 0) > 0
+    assert 'strategy_used' in resp
+    assert engine.are_vectors_loaded()
+    assert len(recs) <= 5
+>>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4
 
 
 def test_ml_user_data():
@@ -296,6 +307,7 @@ def test_recommendation_no_duplicates(ml_fixtures):
     event_ids = [rec.get('event_id')
                  for rec in recommendations if 'event_id' in rec]
 
+<<<<<<< HEAD
     assert len(event_ids) == len(set(event_ids)
                                  ), "Recommendations should not contain duplicate event IDs"
 
@@ -349,3 +361,6 @@ def test_recommendations_score_ordering(ml_fixtures):
         # Verify scores are in descending order
         assert scores == sorted(
             scores, reverse=True), "Recommendations should be sorted by score (highest first)"
+=======
+    assert len(event_ids) == len(set(event_ids))
+>>>>>>> 3e9f4f67901635abb41d9ba259130748377ff4e4

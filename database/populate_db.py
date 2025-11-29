@@ -7,28 +7,33 @@ import uuid
 from datetime import datetime, timedelta
 
 # --- CONFIGURATION (MODIFIED) ---
-# Numbers have been halved to reduce the amount of data
 NUM_USERS = 25
+NUM_ORGANIZATIONS = 5
 NUM_EVENTS = 50
-# These are now determined by the length of the Gainesville-specific lists below
-NUM_INTERESTS = 10 
+NUM_INTERESTS = 10
 NUM_TAGS = 13
 MAX_INTERESTS_PER_USER = 5
 MAX_TAGS_PER_EVENT = 4
-MAX_RSVPS_PER_EVENT = 20 # Halved
-PERCENT_CONNECTIONS = 0.1 
+MAX_RSVPS_PER_EVENT = 20
+PERCENT_CONNECTIONS = 0.1
 
 # --- PREDEFINED GAINESVILLE DATA (MODIFIED) ---
 
 # New Gainesville-themed event categories
 EVENT_CATEGORIES = [
     {"Name": "Gator Sports", "Description": "Chomp chomp! Football, basketball, and all UF athletic events.", "Color": "#FA4616"},
-    {"Name": "UF Campus Life", "Description": "Events happening on the University of Florida campus.", "Color": "#0021A5"},
-    {"Name": "Local Music & Arts", "Description": "Concerts at local venues, art walks, and theater.", "Color": "#FFC300"},
-    {"Name": "Outdoor & Nature", "Description": "Explore Gainesville's beautiful parks, prairies, and springs.", "Color": "#1A9956"},
-    {"Name": "Food & Breweries", "Description": "From downtown food trucks to local craft breweries.", "Color": "#900C3F"},
-    {"Name": "Community & Markets", "Description": "Farmers markets, volunteer meetups, and local festivals.", "Color": "#581845"},
-    {"Name": "Tech & Innovation", "Description": "Meetups and workshops from Gainesville's growing tech scene.", "Color": "#2A6E99"},
+    {"Name": "UF Campus Life",
+        "Description": "Events happening on the University of Florida campus.", "Color": "#0021A5"},
+    {"Name": "Local Music & Arts",
+        "Description": "Concerts at local venues, art walks, and theater.", "Color": "#FFC300"},
+    {"Name": "Outdoor & Nature",
+        "Description": "Explore Gainesville's beautiful parks, prairies, and springs.", "Color": "#1A9956"},
+    {"Name": "Food & Breweries",
+        "Description": "From downtown food trucks to local craft breweries.", "Color": "#900C3F"},
+    {"Name": "Community & Markets",
+        "Description": "Farmers markets, volunteer meetups, and local festivals.", "Color": "#581845"},
+    {"Name": "Tech & Innovation",
+        "Description": "Meetups and workshops from Gainesville's growing tech scene.", "Color": "#2A6E99"},
 ]
 
 # New list of real Gainesville venues for events
@@ -70,7 +75,19 @@ GAINESVILLE_TAGS = [
     "Downtown GNV", "Support Local", "Craft Fair"
 ]
 
+GAINESVILLE_ORGANIZATIONS = [
+    ("UF Student Government", "The official student government representing all University of Florida students and advocating for student interests."),
+    ("Gator Gaming Guild", "A community of UF students and locals passionate about board games, video games, and tabletop RPGs."),
+    ("Gainesville Tech Meetup",
+     "Monthly gatherings for developers, entrepreneurs, and tech enthusiasts in the Gainesville area."),
+    ("Alachua Audubon Society",
+     "Dedicated to conservation and appreciation of birds and their habitats in North Central Florida."),
+    ("Downtown Gainesville Merchants",
+     "Local business owners working together to promote and enhance the downtown Gainesville experience.")
+]
+
 # --- SCRIPT START ---
+
 
 def clear_database(cursor):
     """
@@ -99,6 +116,7 @@ def clear_database(cursor):
             print(f"  - Could not clear {table}: {e}")
     print("✅ All tables cleared and identities reset.\n")
 
+
 def populate_data(conn, cursor):
     """Main function to orchestrate the data population."""
     fake = Faker()
@@ -109,10 +127,12 @@ def populate_data(conn, cursor):
 
     def generate_gainesville_event_title():
         """Generates a plausible, themed event title."""
-        activities = ["Live Music", "Gators Watch Party", "Yoga Session", "Farmers Market", "Art Walk", "Brewery Tour", "Tech Meetup", "Outdoor Movie Night", "Volunteer Day", "Food Truck Rally"]
-        venues = ["at Depot Park", "at The High Dive", "at Ben Hill Griffin Stadium", "at Bo Diddley Plaza", "at First Magnitude", "at Celebration Pointe", "on UF Campus", "at Paynes Prairie"]
+        activities = ["Live Music", "Gators Watch Party", "Yoga Session", "Farmers Market", "Art Walk",
+                      "Brewery Tour", "Tech Meetup", "Outdoor Movie Night", "Volunteer Day", "Food Truck Rally"]
+        venues = ["at Depot Park", "at The High Dive", "at Ben Hill Griffin Stadium", "at Bo Diddley Plaza",
+                  "at First Magnitude", "at Celebration Pointe", "on UF Campus", "at Paynes Prairie"]
         return f"{random.choice(activities)} {random.choice(venues)}"
-        
+
     try:
         clear_database(cursor)
 
@@ -120,20 +140,23 @@ def populate_data(conn, cursor):
         print("🌱 Populating independent tables (Gainesville Themed)...")
         cursor.executemany(
             "INSERT INTO EventCategories (Name, Description, Color) VALUES (?, ?, ?)",
-            [(cat['Name'], cat['Description'], cat['Color']) for cat in EVENT_CATEGORIES]
+            [(cat['Name'], cat['Description'], cat['Color'])
+             for cat in EVENT_CATEGORIES]
         )
         cursor.execute("SELECT CategoryID FROM EventCategories")
         category_ids = [row.CategoryID for row in cursor.fetchall()]
         print("  - Populated EventCategories")
 
         # Interests (MODIFIED)
-        cursor.executemany("INSERT INTO Interests (Name, Description) VALUES (?, ?)", GAINESVILLE_INTERESTS)
+        cursor.executemany(
+            "INSERT INTO Interests (Name, Description) VALUES (?, ?)", GAINESVILLE_INTERESTS)
         cursor.execute("SELECT InterestID FROM Interests")
         interest_ids = [row.InterestID for row in cursor.fetchall()]
         print("  - Populated Interests")
-        
+
         # EventTags (MODIFIED)
-        tags_data = [(name, f"Events related to {name} in Gainesville.", random_hex_color()) for name in GAINESVILLE_TAGS]
+        tags_data = [(name, f"Events related to {name} in Gainesville.", random_hex_color(
+        )) for name in GAINESVILLE_TAGS]
         cursor.executemany(
             "INSERT INTO EventTags (Name, Description, Color) VALUES (?, ?, ?)",
             tags_data
@@ -143,10 +166,29 @@ def populate_data(conn, cursor):
         print("  - Populated EventTags")
         print("✅ Independent tables populated.\n")
 
-        # 2. Populate Users
+        # 2. Populate Users with mix of individual and organization types
+        # 2. Populate Users with mix of individual and organization types
         print("👤 Populating Users...")
         users_data = []
-        for _ in range(NUM_USERS):
+
+        # Create organization users first (one for each predefined organization)
+        for idx, (org_name, org_desc) in enumerate(GAINESVILLE_ORGANIZATIONS):
+            username = org_name.lower().replace(' ', '_')
+            users_data.append((
+                str(uuid.uuid4()),
+                username,
+                fake.unique.email(),
+                org_name,
+                None,
+                f"Gainesville, FL {fake.zipcode_in_state(state_abbr='FL')}",
+                org_desc,
+                'organization',
+                org_name
+            ))
+
+        # Create remaining users as individuals
+        remaining_users = NUM_USERS - NUM_ORGANIZATIONS
+        for _ in range(remaining_users):
             first_name = fake.first_name()
             last_name = fake.last_name()
             users_data.append((
@@ -155,32 +197,39 @@ def populate_data(conn, cursor):
                 fake.unique.email(),
                 first_name,
                 last_name,
-                f"Gainesville, FL {fake.zipcode_in_state(state_abbr='FL')}", # MODIFIED: Gainesville location
-                fake.text(max_nb_chars=250)
+                f"Gainesville, FL {fake.zipcode_in_state(state_abbr='FL')}",
+                fake.text(max_nb_chars=250),
+                'individual',
+                None
             ))
+
         cursor.executemany(
-            "INSERT INTO Users (FirebaseUID, Username, Email, FirstName, LastName, Location, Bio) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO Users (FirebaseUID, Username, Email, FirstName, LastName, Location, Bio, UserType, OrganizationName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             users_data
         )
-        cursor.execute("SELECT FirebaseUID FROM Users")
-        user_uids = [row.FirebaseUID for row in cursor.fetchall()]
-        print(f"✅ Populated {len(user_uids)} Users.\n")
+        cursor.execute("SELECT FirebaseUID, UserType FROM Users")
+        user_rows = cursor.fetchall()
+        user_uids = [row.FirebaseUID for row in user_rows]
+        org_user_uids = [
+            row.FirebaseUID for row in user_rows if row.UserType == 'organization']
+        print(
+            f"✅ Populated {len(user_uids)} Users ({len(org_user_uids)} organizations, {len(user_uids) - len(org_user_uids)} individuals).\n")
 
-        # 3. Populate Events
+        # 3. Populate Events (only organization users can create events)
         print("🎉 Populating Events...")
         events_data = []
         for _ in range(NUM_EVENTS):
             start_time = fake.future_datetime(end_date="+60d")
             end_time = start_time + timedelta(hours=random.randint(1, 5))
             events_data.append((
-                random.choice(user_uids),
-                generate_gainesville_event_title(), # MODIFIED: Themed title
+                random.choice(org_user_uids),
+                generate_gainesville_event_title(),
                 fake.text(max_nb_chars=800),
                 start_time,
                 end_time,
-                random.choice(GAINESVILLE_VENUES), # MODIFIED: Themed location
+                random.choice(GAINESVILLE_VENUES),
                 random.choice(category_ids),
-                random.choice([None, 25, 50, 100]), # MODIFIED: Smaller capacities
+                random.choice([None, 25, 50, 100]),
                 f"https://picsum.photos/seed/{uuid.uuid4()}/800/400"
             ))
         cursor.executemany(
@@ -189,17 +238,20 @@ def populate_data(conn, cursor):
         )
         cursor.execute("SELECT EventID FROM Events")
         event_ids = [row.EventID for row in cursor.fetchall()]
-        print(f"✅ Populated {len(event_ids)} Events.\n")
+        print(
+            f"✅ Populated {len(event_ids)} Events (all created by organization users).\n")
 
         # 4. Populate Many-to-Many join tables
         print("🔗 Populating relationship tables...")
         # UserInterests
         user_interests_data = set()
         for uid in user_uids:
-            num_interests = random.randint(1, min(len(interest_ids), MAX_INTERESTS_PER_USER))
+            num_interests = random.randint(
+                1, min(len(interest_ids), MAX_INTERESTS_PER_USER))
             for interest in random.sample(interest_ids, k=num_interests):
-                 user_interests_data.add((uid, interest))
-        cursor.executemany("INSERT INTO UserInterests (UserUID, InterestID) VALUES (?, ?)", list(user_interests_data))
+                user_interests_data.add((uid, interest))
+        cursor.executemany(
+            "INSERT INTO UserInterests (UserUID, InterestID) VALUES (?, ?)", list(user_interests_data))
         print(f"  - Populated {len(user_interests_data)} UserInterests")
 
         # EventTagAssignments
@@ -208,27 +260,33 @@ def populate_data(conn, cursor):
             num_tags = random.randint(1, min(len(tag_ids), MAX_TAGS_PER_EVENT))
             for tag in random.sample(tag_ids, k=num_tags):
                 event_tags_data.add((eid, tag))
-        cursor.executemany("INSERT INTO EventTagAssignments (EventID, TagID) VALUES (?, ?)", list(event_tags_data))
+        cursor.executemany(
+            "INSERT INTO EventTagAssignments (EventID, TagID) VALUES (?, ?)", list(event_tags_data))
         print(f"  - Populated {len(event_tags_data)} EventTagAssignments")
 
         # SocialConnections
         connections_data = set()
-        num_connections_to_create = int(NUM_USERS * (NUM_USERS - 1) * PERCENT_CONNECTIONS)
+        num_connections_to_create = int(
+            NUM_USERS * (NUM_USERS - 1) * PERCENT_CONNECTIONS)
         if len(user_uids) > 1:
             while len(connections_data) < num_connections_to_create:
                 follower, following = random.sample(user_uids, 2)
                 connections_data.add((follower, following))
-            cursor.executemany("INSERT INTO SocialConnections (FollowerUID, FollowingUID) VALUES (?, ?)", list(connections_data))
+            cursor.executemany(
+                "INSERT INTO SocialConnections (FollowerUID, FollowingUID) VALUES (?, ?)", list(connections_data))
             print(f"  - Populated {len(connections_data)} SocialConnections")
 
         # RSVPs
         rsvps_data = set()
         for eid in event_ids:
-            attendees = random.sample(user_uids, k=min(len(user_uids), random.randint(2, MAX_RSVPS_PER_EVENT)))
+            attendees = random.sample(user_uids, k=min(
+                len(user_uids), random.randint(2, MAX_RSVPS_PER_EVENT)))
             for uid in attendees:
-                status = random.choice(['Going', 'Going', 'Going', 'Interested', 'Not Going'])
+                status = random.choice(
+                    ['Going', 'Going', 'Going', 'Interested', 'Not Going'])
                 rsvps_data.add((uid, eid, status))
-        cursor.executemany("INSERT INTO RSVPs (UserUID, EventID, Status) VALUES (?, ?, ?)", list(rsvps_data))
+        cursor.executemany(
+            "INSERT INTO RSVPs (UserUID, EventID, Status) VALUES (?, ?, ?)", list(rsvps_data))
         print(f"  - Populated {len(rsvps_data)} RSVPs")
         print("✅ Relationship tables populated.\n")
 
@@ -245,6 +303,7 @@ def populate_data(conn, cursor):
         print(f"❌ An unexpected error occurred: {e}")
         print("Rolling back transaction...")
         conn.rollback()
+
 
 def main():
     """Connects to the database and runs the population script."""
@@ -267,7 +326,7 @@ def main():
     if confirmation != 'YES':
         print("\n❌ Operation aborted by user. No changes were made to the database.")
         exit()
-    
+
     print("\nUser confirmed. Proceeding with database population...\n")
 
     conn_str = (
@@ -284,6 +343,7 @@ def main():
             populate_data(conn, cursor)
     except Exception as e:
         print(f"Connection failed: {e}")
+
 
 if __name__ == "__main__":
     main()

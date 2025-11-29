@@ -1,0 +1,105 @@
+@import "../pages/Style.css";
+
+/* Modal backdrop */
+.org-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+/* Modal container */
+.org-modal {
+  background: var(--page);
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+  width: 100%;
+  max-width: 520px;
+  padding: 20px 22px;
+}
+
+/* Header */
+.org-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.org-modal-close {
+  font-size: 22px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Body + fields */
+.org-modal-body {
+  display: grid;
+  gap: 14px;
+}
+
+.org-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.org-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.org-field input,
+.org-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  display: block;
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  padding: 9px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #f9fafb;
+}
+
+.org-field input:focus,
+.org-field textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand-600);
+}
+
+/* Error */
+.org-modal-error {
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+/* Footer buttons */
+.org-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.org-btn-primary {
+  background: var(--color-accent);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+}
+
+.org-btn-secondary {
+  background: #fff;
+  border: 1px solid var(--color-accent);
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
