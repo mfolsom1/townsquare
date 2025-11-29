@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import CreateEventModal from "./CreateEvent";
 import { useAuth } from "../auth/AuthContext";
 import SearchBar from "./SearchBar";

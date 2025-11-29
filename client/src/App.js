@@ -3,6 +3,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import NavBar from "./components/NavBar";
+import NavBarLeft from "./components/NavBarLeft";
 import Discover from "./pages/Discover";
 import EventDetail from "./pages/EventDetail";
 
