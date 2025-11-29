@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
 import CreateEventModal from "./CreateEvent";
 import { useAuth } from "../auth/AuthContext";
 import SearchBar from "./SearchBar";
@@ -10,36 +10,42 @@ import logo from "../assets/townsquare-logo.png";
 
 
 export default function NavBar() {
-  // create event modal is only visible to users
   const [openCreate, setOpenCreate] = useState(false);
 
-  const { user, logout, initials } = useAuth();
-  const [error, setError] = useState("");
+  const { user, initials } = useAuth();
   const [userProfile, setUserProfile] = useState(null);
   const { addEvent } = useEvents();
   const location = useLocation();
-
-  // Check if user is organization
-  const isOrganization = userProfile?.user_type === 'organization' || userProfile?.userType === 'organization';
   const nav = useNavigate();
 
-  // redirect to /login if logging out
-  const handleLogout = async () => {
-    await logout();
-    nav("/login", { replace: true })
-  }
+  const isOrganization = userProfile?.user_type === 'organization';
 
-  // Handle event creation success
+  useEffect(() => {
+    let cancelled = false;
+    async function loadUserProfile() {
+      if (!user) return;
+      try {
+        const idToken = await user.getIdToken();
+        const response = await getUserProfile(idToken);
+        if (!cancelled) {
+          setUserProfile(response?.user || null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error("Failed to load user profile:", e);
+          setUserProfile(null);
+        }
+      }
+    }
+    loadUserProfile();
+    return () => { cancelled = true; };
+  }, [user]);
+
   const handleEventCreated = (newEvent) => {
     console.log("NEW EVENT CREATED:", newEvent);
-
-    // Add the new event to the global state
     addEvent(newEvent);
-
-    // Close the modal
     setOpenCreate(false);
 
-    // If we're not on the discover page, navigate there to show the new event
     if (location.pathname !== "/discover" && location.pathname !== "/") {
       nav("/discover");
     }
