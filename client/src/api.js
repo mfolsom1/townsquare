@@ -363,7 +363,7 @@ export async function unfollowUser(idToken, targetUid = null, targetUsername = n
     return apiRequest("/api/social/unfollow", {
         method: "POST",
         body: JSON.stringify(body),
-    });
+    }, idToken);
 }
 
 /**
