@@ -30,19 +30,20 @@
 }
 
 .ts-refresh-btn, .ts-retry-btn {
-    background: var(--button-bg-color);
+    background: var(--color-accent);
     color: white;
     border: none;
     margin: 10px 0px;
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: 360px;
+    font-weight: 600;
     cursor: pointer;
     font-size: 14px;
     transition: background-color 0.2s ease;
 }
 
 .ts-refresh-btn:hover:not(:disabled), .ts-retry-btn:hover {
-    background: var(--button-bg-color-dark);
+    background: var(--color-accent-dark);
 }
 
 .ts-refresh-btn:disabled {
@@ -214,5 +215,6 @@
 /* Saved state: fill the heart & brand color */
 .event-save.saved .event-heart {
   font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24;
-  color: var(--brand, #6E77FF);
+  color: var(--brand, #da5d5d);
+  /* color: var(--color-accent-dark, #6E77FF); */
 }

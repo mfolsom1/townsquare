@@ -12,26 +12,19 @@ import logo from "../assets/townsquare-logo.png";
 export default function NavBar() {
   const [openCreate, setOpenCreate] = useState(false);
 
-  const { user, logout, initials } = useAuth();
-  const [error, setError] = useState("");
+  const { user, initials } = useAuth();
   const [userProfile, setUserProfile] = useState(null);
   const { addEvent } = useEvents();
   const location = useLocation();
   const nav = useNavigate();
-  
-  // redirect to /login if logging out
-  // const handleLogout = async () => {
-  //   await logout();
-  //   nav("/login", { replace: true })
-  // }
+
   const isOrganization = userProfile?.user_type === 'organization';
-  
+
   useEffect(() => {
     let cancelled = false;
     async function loadUserProfile() {
       if (!user) return;
       try {
-        setError("");
         const idToken = await user.getIdToken();
         const response = await getUserProfile(idToken);
         if (!cancelled) {
@@ -39,7 +32,7 @@ export default function NavBar() {
         }
       } catch (e) {
         if (!cancelled) {
-          setError("Failed to load user profile. Please try again.");
+          console.error("Failed to load user profile:", e);
           setUserProfile(null);
         }
       }
@@ -62,12 +55,12 @@ export default function NavBar() {
     <>
       <header className="ts-nav">
         {/* Left: Logo */}
-      <div className="ts-left">
-        <Link to="/discover" className="ts-brand-wrap">
-          <img src={logo} alt="Townsquare Logo" className="ts-logo" />
-          <span className="ts-brand">Townsquare</span>
-        </Link>
-      </div>
+        <div className="ts-left">
+          <Link to="/discover" className="ts-brand-wrap">
+            <img src={logo} alt="Townsquare Logo" className="ts-logo" />
+            <span className="ts-brand">Townsquare</span>
+          </Link>
+        </div>
 
 
 

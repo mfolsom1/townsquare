@@ -7,7 +7,8 @@ import React, {
   useCallback,
 } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getEvents } from "../api";
+import { getEvents, getRecommendations } from "../api";
+import { useAuth } from "../auth/AuthContext";
 
 const EventContext = createContext(null);
 
@@ -21,6 +22,7 @@ export function EventProvider({ children }) {
   const searchParamsString = searchParams.toString();
   const lastFiltersRef = useRef(null);
   const currentControllerRef = useRef(null);
+  const { user } = useAuth();
 
   // Clear success message after a delay
   const showSuccessMessage = (message) => {
@@ -73,9 +75,31 @@ export function EventProvider({ children }) {
         lastFiltersRef.current = filters;
 
         const response = await getEvents(filters, { signal });
-        const eventsArray = Array.isArray(response.events)
+        let eventsArray = Array.isArray(response.events)
           ? response.events
           : Object.values(response.events || {});
+
+        // If user is authenticated and no filters/search, prepend recommendations
+        if (user && !filters.q && !filters.category_id && !filters.start_date && !filters.tags) {
+          try {
+            const idToken = await user.getIdToken();
+            const recsResponse = await getRecommendations(idToken, 10, 'hybrid');
+            const recommendations = recsResponse.recommendations || [];
+
+            // Get event IDs from recommendations
+            const recEventIds = new Set(recommendations.map(r => r.event_id));
+
+            // Filter out recommended events from the main list to avoid duplicates
+            const nonRecEvents = eventsArray.filter(e => !recEventIds.has(e.event_id));
+
+            // Prepend recommendations at the top
+            eventsArray = [...recommendations, ...nonRecEvents];
+          } catch (recError) {
+            // If recommendations fail, continue with regular events
+            console.warn('Failed to fetch recommendations:', recError);
+          }
+        }
+
         setEvents(eventsArray);
       } catch (err) {
         if (err?.name === "AbortError") return; // cancelled
@@ -85,7 +109,7 @@ export function EventProvider({ children }) {
         setLoading(false);
       }
     },
-    [searchParamsString]
+    [searchParamsString, user]
   );
 
   // Add a new event to the list (add it at the beginning for visibility)
@@ -116,7 +140,7 @@ export function EventProvider({ children }) {
     if (currentControllerRef.current) {
       try {
         currentControllerRef.current.abort();
-      } catch (e) {}
+      } catch (e) { }
       currentControllerRef.current = null;
     }
     const controller = new AbortController();
@@ -133,7 +157,7 @@ export function EventProvider({ children }) {
     if (currentControllerRef.current) {
       try {
         currentControllerRef.current.abort();
-      } catch (e) {}
+      } catch (e) { }
       currentControllerRef.current = null;
     }
 
@@ -145,7 +169,7 @@ export function EventProvider({ children }) {
     return () => {
       try {
         controller.abort();
-      } catch (e) {}
+      } catch (e) { }
       currentControllerRef.current = null;
     };
   }, [fetchEvents]);

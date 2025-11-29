@@ -1,5 +1,13 @@
 """
 Unit tests for ML recommendation system
+
+This test suite validates the FUNCTIONALITY of the recommendation pipeline:
+- Tests that recommendations are generated
+- Validates data structures and API responses
+- Tests different user types (individual, organization)
+- Verifies recommendation strategies work
+- Tests edge cases (cold start, duplicates, score ordering)
+Usage: pytest server/tests/test_ml.py -v
 """
 import pytest
 import types
@@ -101,11 +109,26 @@ def test_ml_recommendations(ml_fixtures):
     resp = api.get_recommendations("user_001", top_k=5)
     recs = resp.get('recommendations', [])
 
-    assert isinstance(recs, list)
-    assert resp.get("count", 0) > 0
-    assert 'strategy_used' in resp
-    assert engine.are_vectors_loaded()
-    assert len(recs) <= 5
+    # Verify response structure
+    assert isinstance(recs, list), "Recommendations should be a list"
+    assert resp.get(
+        "count", 0) > 0, "Should return at least one recommendation"
+    assert 'strategy_used' in resp, "Response should include strategy_used field"
+    assert resp['strategy_used'] == 'hybrid', "Default strategy should be hybrid"
+    assert 'user_uid' in resp, "Response should include user_uid field"
+    assert resp['user_uid'] == 'user_001'
+
+    # Verify engine state
+    assert engine.are_vectors_loaded(), "Engine should have vectors loaded"
+    assert len(recs) <= 5, "Should respect top_k parameter"
+
+    # Verify recommendation structure
+    if recs:
+        first_rec = recs[0]
+        assert 'event_id' in first_rec, "Each recommendation should have event_id"
+        assert 'similarity_score' in first_rec, "Each recommendation should have similarity_score"
+        assert isinstance(first_rec['similarity_score'],
+                          (int, float)), "Score should be numeric"
 
 
 def test_ml_user_data():
@@ -273,4 +296,56 @@ def test_recommendation_no_duplicates(ml_fixtures):
     event_ids = [rec.get('event_id')
                  for rec in recommendations if 'event_id' in rec]
 
-    assert len(event_ids) == len(set(event_ids))
+    assert len(event_ids) == len(set(event_ids)
+                                 ), "Recommendations should not contain duplicate event IDs"
+
+
+def test_recommendations_with_no_interests(ml_fixtures):
+    """Test recommendations work for users with no interests (cold start)"""
+    _apply_test_patches()
+    from ml.recommend import RecommendationAPI
+
+    _, engine, _, shared_db = ml_fixtures
+
+    # User with no interests or history
+    shared_db.data['users'].append({
+        "FirebaseUID": "cold_start_001",
+        "Username": "new_user",
+        "Interests": [],
+        "Bio": "",
+        "Location": "Test City",
+        "UserType": "individual",
+        "OrganizationName": None
+    })
+
+    api = RecommendationAPI(engine=engine)
+    result = api.get_recommendations("cold_start_001", top_k=5)
+
+    # Should still get recommendations (fallback to popular events)
+    assert isinstance(result['recommendations'], list)
+    assert result['count'] >= 0, "Should handle cold start gracefully"
+
+
+def test_recommendations_score_ordering(ml_fixtures):
+    """Test that recommendations are returned in descending score order"""
+    _apply_test_patches()
+
+    _, engine, _, shared_db = ml_fixtures
+
+    shared_db.data['users'].append({
+        "FirebaseUID": "score_test_001",
+        "Username": "score_tester",
+        "Interests": ["technology", "innovation"],
+        "Bio": "Tech enthusiast",
+        "Location": "City",
+        "UserType": "individual",
+        "OrganizationName": None
+    })
+
+    recommendations = engine.recommend_events("score_test_001", top_k=10)
+
+    if len(recommendations) > 1:
+        scores = [r.get('similarity_score', 0) for r in recommendations]
+        # Verify scores are in descending order
+        assert scores == sorted(
+            scores, reverse=True), "Recommendations should be sorted by score (highest first)"

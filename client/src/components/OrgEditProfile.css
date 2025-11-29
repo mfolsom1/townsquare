@@ -1,3 +1,5 @@
+@import "../pages/Style.css";
+
 /* Modal backdrop */
 .org-modal-backdrop {
   position: fixed;
@@ -86,7 +88,7 @@
 }
 
 .org-btn-primary {
-  background: var(--brand);
+  background: var(--color-accent);
   color: white;
   padding: 8px 14px;
   border-radius: 999px;
@@ -96,7 +98,7 @@
 
 .org-btn-secondary {
   background: #fff;
-  border: 1px solid var(--stroke);
+  border: 1px solid var(--color-accent);
   padding: 8px 14px;
   border-radius: 999px;
   cursor: pointer;
