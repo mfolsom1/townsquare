@@ -132,6 +132,69 @@ def populate_data(conn, cursor):
         venues = ["at Depot Park", "at The High Dive", "at Ben Hill Griffin Stadium", "at Bo Diddley Plaza",
                   "at First Magnitude", "at Celebration Pointe", "on UF Campus", "at Paynes Prairie"]
         return f"{random.choice(activities)} {random.choice(venues)}"
+    
+    def generate_gainesville_event_description(title):
+        """Generates realistic event descriptions based on the event title and type."""
+        descriptions = {
+            "Live Music": [
+                "Join us for an evening of incredible live music featuring local and touring artists. Come early to grab the best seats and enjoy our full bar and food menu. This venue is known for its intimate atmosphere and excellent acoustics.",
+                "Experience the vibrant Gainesville music scene with performances by talented local musicians. The night will feature a mix of genres including indie rock, folk, and electronic music. Don't miss this opportunity to discover your new favorite band.",
+                "Local bands take the stage for a night of original music and creative energy. The lineup includes both emerging artists and established acts from the North Florida music community. Come support live music in Gainesville!"
+            ],
+            "Gators Watch Party": [
+                "Cheer on the Florida Gators with fellow fans! We'll have the game on multiple big screens with surround sound, plus game day specials on food and drinks. Wear your orange and blue and let's go Gators!",
+                "Join the Gator Nation for an exciting watch party! We'll have giveaways, trivia during halftime, and the best game day atmosphere in town. Free appetizers during the first quarter. In all kinds of weather, we're all together!",
+                "Come watch the Gators dominate on the field while you enjoy great company, cold drinks, and game day favorites. This is the place to be for every UF fan. Kick-off specials and post-game celebrations included."
+            ],
+            "Yoga Session": [
+                "Start your day with mindfulness and movement in this beginner-friendly yoga class. We'll focus on gentle stretches, breathing techniques, and relaxation. All levels welcome - mats and props provided.",
+                "Join us for an outdoor yoga session surrounded by Gainesville's natural beauty. This vinyasa flow class will help you connect with nature while improving flexibility and strength. Bring water and a towel.",
+                "Unwind from your week with this restorative yoga practice. We'll use props to support deep relaxation and gentle stretching. Perfect for stress relief and improving sleep quality. No experience necessary."
+            ],
+            "Farmers Market": [
+                "Shop local and support area farmers and artisans! Find fresh produce, homemade goods, artisan crafts, and delicious prepared foods. Live music and activities for kids make this a perfect family outing.",
+                "Discover the best of North Florida agriculture and craftsmanship at our weekly market. From organic vegetables to handmade soaps, locally roasted coffee to fresh flowers - you'll find unique treasures every week.",
+                "Support sustainable agriculture and local businesses while enjoying the community atmosphere. Talk directly with farmers about their growing practices and get tips for preparing seasonal produce."
+            ],
+            "Art Walk": [
+                "Explore Gainesville's thriving arts scene during our monthly art walk. Visit galleries, meet local artists, and enjoy live demonstrations. Many venues offer refreshments and special exhibition openings.",
+                "Downtown comes alive with creativity! Stroll through participating galleries and studios, enjoy street performances, and discover emerging and established artists. Free and family-friendly event.",
+                "Immerse yourself in local culture with this self-guided tour of Gainesville's art community. From traditional paintings to contemporary installations, there's something to inspire everyone."
+            ],
+            "Brewery Tour": [
+                "Take a behind-the-scenes look at craft beer production and enjoy tastings of signature brews. Learn about the brewing process from grain to glass while sampling a variety of styles from IPAs to stouts.",
+                "Discover the art and science of craft brewing with our guided tour. Meet the brewers, see the equipment in action, and taste fresh beer straight from the source. Tours include a souvenir glass.",
+                "Join fellow beer enthusiasts for an educational and delicious experience. Learn about local ingredients, brewing techniques, and the history of craft beer in Gainesville. Designated driver options available."
+            ],
+            "Tech Meetup": [
+                "Network with local developers, entrepreneurs, and tech enthusiasts. Tonight's presentation covers the latest trends in web development, followed by open networking and discussion. Pizza and drinks provided.",
+                "Join Gainesville's growing tech community for presentations on emerging technologies, startup stories, and collaborative discussions. Whether you're a student, professional, or curious beginner, all are welcome.",
+                "Connect with like-minded innovators and learn about the latest developments in technology. This month's focus is on artificial intelligence and its applications in local businesses."
+            ],
+            "Outdoor Movie Night": [
+                "Bring blankets and chairs for a classic movie under the stars! We'll be screening a family-friendly film with free popcorn and concessions available for purchase. Gates open at sunset.",
+                "Experience cinema in a whole new way with our outdoor screening. The movie starts at dusk, but come early to claim your spot and enjoy pre-show activities and live music.",
+                "Pack a picnic and enjoy a beloved classic film in the great outdoors. This free community event includes activities for kids before the movie and food trucks on site."
+            ],
+            "Volunteer Day": [
+                "Make a difference in the Gainesville community! Join us for a day of service including park cleanup, habitat restoration, and community garden maintenance. Tools and lunch provided.",
+                "Give back to the community that gives us so much. Today's volunteer activities focus on environmental conservation and supporting local families in need. All ages and skill levels welcome.",
+                "Be part of something bigger than yourself. We'll be working on projects that directly benefit Gainesville residents, from trail maintenance to food distribution. Come ready to work and make new friends."
+            ],
+            "Food Truck Rally": [
+                "Taste the best mobile cuisine Gainesville has to offer! Over a dozen food trucks will be serving everything from gourmet tacos to artisan ice cream. Live music and seating areas provided.",
+                "Satisfy your cravings with diverse food options from local culinary entrepreneurs. From BBQ to vegan options, fusion cuisines to comfort food classics - there's something for every palate.",
+                "Enjoy a feast for all your senses with great food, live entertainment, and community atmosphere. Support local food businesses while discovering new flavors and meeting your neighbors."
+            ]
+        }
+        
+        # Extract the main activity from the title
+        for activity in descriptions.keys():
+            if activity in title:
+                return random.choice(descriptions[activity])
+        
+        # Default description if no match found
+        return "Join us for this exciting community event in Gainesville! Connect with neighbors, enjoy great activities, and experience what makes our city special. All are welcome to participate in this fun and engaging gathering."
 
     try:
         clear_database(cursor)
@@ -221,10 +284,12 @@ def populate_data(conn, cursor):
         for _ in range(NUM_EVENTS):
             start_time = fake.future_datetime(end_date="+60d")
             end_time = start_time + timedelta(hours=random.randint(1, 5))
+            title = generate_gainesville_event_title()
+            description = generate_gainesville_event_description(title)
             events_data.append((
                 random.choice(org_user_uids),
-                generate_gainesville_event_title(),
-                fake.text(max_nb_chars=800),
+                title,
+                description,
                 start_time,
                 end_time,
                 random.choice(GAINESVILLE_VENUES),

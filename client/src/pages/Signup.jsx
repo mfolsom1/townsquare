@@ -20,8 +20,8 @@ export default function Signup() {
     const nav = useNavigate();
     const location = useLocation();
 
-    // determine where to send user after signup -> discover page
-    const redirectTo = location.state?.from?.pathname || "/discover";
+    // determine where to send user after signup -> interests page for new users
+    const redirectTo = location.state?.from?.pathname || "/interests";
 
     // password validation function 
     const isStrongPassword = useMemo(() => {

@@ -1,3 +1,6 @@
+@import "Style.css";
+@import "Auth.css";
+
 .interests-wrap {
   display: flex;
   min-height: 100vh;
@@ -14,13 +17,61 @@
   border-radius: 16px;
   padding: 28px;
   box-shadow:-25px 25px 10px rgba(0,0,0,0.3);
-  border:2px solid var(--accent-color); 
+  border:2px solid var(--color-accent); 
   text-align: center;
 }
 
 .interests-title {
   font-size: 1.8rem;
   margin-bottom: 1.5rem;
+}
+
+.bio-section {
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.bio-title {
+  font-size: 1.2rem;
+  margin-bottom: 0.8rem;
+  color: #333;
+  text-align: center;
+}
+
+.bio-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 100px;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease;
+}
+
+.bio-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.bio-textarea::placeholder {
+  color: #999;
+}
+
+.bio-counter {
+  text-align: right;
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.5rem;
+}
+
+.interests-subtitle {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: #333;
 }
 
 .interests-menu {
@@ -52,7 +103,7 @@
   align-items: center;
   justify-content: center;
   background-color: #f7f7f7;
-  border: 2px solid var(--accent-color);
+  border: 2px solid var(--color-accent);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -62,7 +113,7 @@
 }
 
 .interest-circle.selected {
-  background-color: var(--button-color-selected);
+  background-color: var(--brand);
   color: white;
   border-color: #111;
 }
@@ -93,4 +144,26 @@
   .interests-menu {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+.interests-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.interests-buttons .auth-btn {
+  flex: 1;
+  max-width: 150px;
+}
+
+.interests-buttons .auth-btn.secondary {
+  background-color: #f5f5f5;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+.interests-buttons .auth-btn.secondary:hover {
+  background-color: #e0e0e0;
 }

@@ -8,7 +8,9 @@ import EventDetail from "./pages/EventDetail";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Interests from "./pages/Interests";
 import RequireAuth from "./auth/RequireAuth";
+import RequireInterests from "./auth/RequireInterests";
 import { AuthProvider } from "./auth/AuthContext";
 import { EventProvider } from "./contexts/EventContext";
 import ProfileContainer from "./pages/ProfileContainer";
@@ -36,26 +38,27 @@ function App() {
 
                     <div style={{ flex: 1, padding: "20px" }}>
                       <Routes>
-                        <Route path="/discover" element={<Discover />} />
-                        <Route path="/events/:eventId" element={<EventDetail />} />
-                        <Route path="/following" element={<Following />} />
-                        <Route path="/saved" element={<SavedEventsPage />} />
+                        <Route path="/interests" element={<Interests />} />
+                        <Route path="/discover" element={<RequireInterests><Discover /></RequireInterests>} />
+                        <Route path="/events/:eventId" element={<RequireInterests><EventDetail /></RequireInterests>} />
+                        <Route path="/following" element={<RequireInterests><Following /></RequireInterests>} />
+                        <Route path="/saved" element={<RequireInterests><SavedEventsPage /></RequireInterests>} />
                         {/* TEMPORARY LINK TO ORG-DASH */}
                         <Route
                           path="/dashboard"
                           element={
-                            <>
+                            <RequireInterests>
                               <OrgDashboardContainer />
-                            </>
+                            </RequireInterests>
                           }
                         />
-                        <Route path="*" element={<Discover />} />
+                        <Route path="*" element={<RequireInterests><Discover /></RequireInterests>} />
                         <Route
                           path="/profile"
                           element={
-                            <RequireAuth>
+                            <RequireInterests>
                               <ProfileContainer />
-                            </RequireAuth>
+                            </RequireInterests>
                           }
                         />
                       </Routes>
