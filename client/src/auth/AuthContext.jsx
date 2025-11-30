@@ -15,6 +15,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   // run once to sub to auth state
   useEffect(() => {
@@ -28,6 +29,8 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       user,
+      isNewUser,
+      setIsNewUser,
       // inside useMemo in AuthProvider
       signup: async ({ name, username, email, password, userType, organizationName, location }) => {
         // Validate that username is provided
@@ -62,6 +65,9 @@ export function AuthProvider({ children }) {
 
         // Create/verify user in backend database
         await verifyUserWithBackend(idToken, userData);
+        
+        // Mark user as new to trigger interests flow
+        setIsNewUser(true);
 
         return cred.user;
       },
@@ -86,7 +92,7 @@ export function AuthProvider({ children }) {
             .toUpperCase()
         : (user?.email?.[0] ?? "N").toUpperCase(),
     }),
-    [user]
+    [user, isNewUser]
   );
 
   // avoid flash-of-unauthenticated by waiting until firebase resolves

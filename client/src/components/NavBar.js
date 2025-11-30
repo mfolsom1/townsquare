@@ -75,6 +75,9 @@ export default function NavBar() {
           <NavLink to="/saved" className="ts-tab">
             Saved Events
           </NavLink>
+          <NavLink to="/interests" className="ts-tab">
+            Interests
+          </NavLink>
         </nav>
 
         {/* Right: search + create + avatar + logout */}

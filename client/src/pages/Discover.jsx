@@ -1,5 +1,5 @@
 // Discover.js: Page for discovering events
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useEvents } from "../contexts/EventContext";
 import "./Discover.css";
 import SavedEvents from "../hooks/SavedEvents";
@@ -56,6 +56,7 @@ const formatEventTimeRange = (startStr, endStr) => {
  */
 const EventCard = ({ event, isSaved, onToggleSaved }) => {
     const { name, color } = categoryDetails[event.category_id] || categoryDetails.default;
+    const location = useLocation();
 
     // Truncate long descriptions to keep the card clean
     const description = event.description || "";
@@ -73,7 +74,11 @@ const EventCard = ({ event, isSaved, onToggleSaved }) => {
   console.log("EventCard received:", event);
 
   return (
-    <Link to={`/events/${event?.event_id ?? ""}`} className="event-card">
+    <Link 
+      to={`/events/${event?.event_id ?? ""}`} 
+      state={{ referrer: location.pathname }}
+      className="event-card"
+    >
       {/* Image container with a category badge */}
       <div className="event-card-image-wrapper">
         <img

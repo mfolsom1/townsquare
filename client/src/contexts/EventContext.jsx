@@ -81,10 +81,26 @@ export function EventProvider({ children }) {
 
         // If user is authenticated and no filters/search, prepend recommendations
         if (user && !filters.q && !filters.category_id && !filters.start_date && !filters.tags) {
+          console.log('🎯 Fetching ML recommendations for discover page...');
           try {
             const idToken = await user.getIdToken();
             const recsResponse = await getRecommendations(idToken, 10, 'hybrid');
             const recommendations = recsResponse.recommendations || [];
+
+            if (recommendations.length > 0) {
+              console.log(`\n📊 RECOMMENDATIONS RECEIVED (${recommendations.length} events):`);
+              recommendations.forEach((rec, index) => {
+                const title = rec.title || 'Unknown Event';
+                const eventId = rec.event_id || 'Unknown ID';
+                const score = rec.similarity_score || 'N/A';
+                const source = rec.source || 'Unknown';
+                console.log(`  ${(index + 1).toString().padStart(2, ' ')}. [${eventId}] ${title}`);
+                console.log(`      Score: ${score}, Source: ${source}`);
+              });
+              console.log('✅ Recommendations integrated into discover page\n');
+            } else {
+              console.log('❌ No recommendations received');
+            }
 
             // Get event IDs from recommendations
             const recEventIds = new Set(recommendations.map(r => r.event_id));
@@ -96,8 +112,10 @@ export function EventProvider({ children }) {
             eventsArray = [...recommendations, ...nonRecEvents];
           } catch (recError) {
             // If recommendations fail, continue with regular events
-            console.warn('Failed to fetch recommendations:', recError);
+            console.warn('❌ Failed to fetch recommendations:', recError);
           }
+        } else {
+          console.log('⏭️  Skipping recommendations (user not authenticated or filters active)');
         }
 
         setEvents(eventsArray);

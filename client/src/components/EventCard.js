@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const categoryDetails = {
   1: { name: "Gator Sports", color: "#FA4616" },
@@ -29,6 +29,7 @@ const formatEventTimeRange = (startStr, endStr) => {
 
 export default function EventCard({ event, isSaved, onToggleSaved }) {
   const { name, color } = categoryDetails[event.category_id] || categoryDetails.default;
+  const location = useLocation();
 
   const description = event.description || "";
   const shortDescription = description.length > 100 ? description.substring(0, 100) + "..." : description;
@@ -43,7 +44,11 @@ export default function EventCard({ event, isSaved, onToggleSaved }) {
   console.log("EventCard received:", event);
 
   return (
-    <Link to={`/events/${event.event_id}`} className="event-card">
+    <Link 
+      to={`/events/${event.event_id}`} 
+      state={{ referrer: location.pathname }}
+      className="event-card"
+    >
       <div className="event-card-image-wrapper">
         <img
           src={event.image_url || "https://placehold.co/600x400/EEE/31343C?text=Townsquare"}

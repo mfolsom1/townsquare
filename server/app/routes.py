@@ -773,6 +773,10 @@ def register_routes(app):
             if not ml_engine:
                 return jsonify({"error": "Recommendation engine not available"}), 503
 
+            print(f"\n=== GENERATING RECOMMENDATIONS ===")
+            print(f"User: {firebase_uid}")
+            print(f"Requested: top_k={top_k}, strategy={strategy}")
+            
             # Get recommendations
             result = ml_engine.get_recommendations(
                 user_uid=firebase_uid,
@@ -783,6 +787,20 @@ def register_routes(app):
 
             # Transform recommendations to frontend format
             recommendations = result.get('recommendations', [])
+            
+            # Log recommended events in ranked order
+            if recommendations:
+                print(f"\n📊 RECOMMENDATIONS GENERATED ({len(recommendations)} events):")
+                for i, rec in enumerate(recommendations, 1):
+                    title = rec.get('Title') or rec.get('title', 'Unknown Event')
+                    event_id = rec.get('EventID') or rec.get('event_id', 'Unknown ID')
+                    similarity = rec.get('similarity_score', 'N/A')
+                    source = rec.get('source', 'Unknown')
+                    print(f"  {i:2d}. [{event_id}] {title[:50]}{'...' if len(title) > 50 else ''}")
+                    print(f"      Score: {similarity}, Source: {source}")
+            else:
+                print("❌ No recommendations generated")
+                
             transformed_recommendations = [
                 transform_event_for_frontend(rec) for rec in recommendations]
 

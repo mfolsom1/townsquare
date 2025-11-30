@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import {
   getEventById,
   createOrUpdateRsvp,
@@ -8,6 +8,7 @@ import {
   getUserPublicInfo,
 } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { useEvents } from "../contexts/EventContext";
 import RsvpModal from "../components/RsvpModal";
 import FollowButton from "../components/FollowButton";
 import "./EventDetail.css";
@@ -46,7 +47,13 @@ const formatEventTimeRange = (startStr, endStr) => {
 export default function EventDetail() {
   const { eventId } = useParams();
   const { user } = useAuth();
+  const { refreshEvents } = useEvents();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the referrer from location state, default to '/discover'
+  const referrer = location.state?.referrer || '/discover';
+  const referrerName = referrer === '/following' ? 'Following' : referrer === '/saved' ? 'Saved Events' : 'Discover';
 
   const [event, setEvent] = useState(null);
   const [organizer, setOrganizer] = useState(null);
@@ -127,6 +134,8 @@ export default function EventDetail() {
       const idToken = await user.getIdToken();
       const res = await createOrUpdateRsvp(idToken, Number(eventId), status);
       setRsvpStatus(res?.rsvp?.status ?? status);
+      // Refresh discover page data after successful RSVP
+      refreshEvents();
     } catch (err) {
       setRsvpStatus(previous);
       setRsvpError(err.message || "Failed to update RSVP");
@@ -151,6 +160,8 @@ export default function EventDetail() {
       const idToken = await user.getIdToken();
       await deleteRsvp(idToken, Number(eventId));
       setRsvpStatus(null);
+      // Refresh discover page data after successful RSVP cancellation
+      refreshEvents();
     } catch (err) {
       setRsvpStatus(previous);
       setRsvpError(err.message || "Failed to cancel RSVP");
@@ -181,8 +192,8 @@ export default function EventDetail() {
   return (
     <main className="event-detail-page">
       <div className="event-detail-container">
-        <Link to="/discover" className="back-link">
-          ← Back to Discover
+        <Link to={referrer} className="back-link">
+          ← Back to {referrerName}
         </Link>
 
         <img

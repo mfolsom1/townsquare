@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { followUser, unfollowUser, checkFollowingStatus } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { useEvents } from "../contexts/EventContext";
 import "./FollowButton.css";
 
 const FollowButton = ({ targetUid, targetUsername, className = "" }) => {
   const { user } = useAuth();
+  const { refreshEvents } = useEvents();
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -58,6 +60,8 @@ const FollowButton = ({ targetUid, targetUsername, className = "" }) => {
       } else {
         await followUser(idToken, targetUid, targetUsername);
       }
+      // Refresh discover page data after successful follow/unfollow
+      refreshEvents();
     } catch (err) {
       // Rollback optimistic update
       setIsFollowing(previousState);

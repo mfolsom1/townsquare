@@ -1,0 +1,9 @@
+{
+  "event_coverage": 1.0,
+  "user_coverage": 0.963,
+  "embedding_quality": {
+    "quality_score": 0.5,
+    "events_embedded": 50
+  },
+  "evaluation_date": "2025-11-30T11:24:27.787701"
+}
